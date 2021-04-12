@@ -1,13 +1,15 @@
 
-secrets_path: "/etc/cardano/testsecrets/"
+secrets_path: "/etc/cardano/testsecrets"
 
 producers:
   - pool: "dulcinea"
     host: "producer0"
     ip: "192.168.100.48"
     network: "testnet"
+    secrets: "/tmp/"
     port: 3100
     era: shelley
+    is_producer: true
     rtview_port: 6700
     test_mode: false
 
@@ -15,22 +17,25 @@ relays:
   - pool: "dulcinea"
     host: "roci-relay0.adakailabs.com"
     ip: "192.168.100.46"
-    network: "testnet"
+    network: "mainnet"
     port: 3000
     era: shelley
     rtview_port: 6600
     test_mode: false
+    peers: 5
 
   - pool: "dulcinea"
     host: "roci-relay1.adakailabs.com"
     ip: "192.168.100.47"
-    network: "testnet"
+    network: "mainnet"
     era: shelley
     rtview_port: 6601
+    peers: 4
 
   - pool: "rocinante"
     host: "rocinante.mooon.com"
     ip: "192.168.100.49"
-    network: "mainnet"
+    network: "testnet"
     port: 3002
     era: shelley
+    peers: 6

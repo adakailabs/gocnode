@@ -20,36 +20,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// startCmd represents the start command
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+var id int
+var isProducer bool
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+// startNodeCmd represents the start command
+var startNodeCmd = &cobra.Command{
+	Use:   "start-node",
+	Short: "Start a cardano node",
+	Long:  `Start a cardano node, relay or producer, based on the passed pool configuration and ID and is-producer flags.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := runner.New(conf)
+		r, err := runner.New(conf, id, isProducer)
 		if err != nil {
 			return err
 		}
-
-		return r.Start()
+		return r.StartCnode()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(startNodeCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// startCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
+	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// startCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// startNodeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
