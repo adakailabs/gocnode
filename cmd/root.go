@@ -17,13 +17,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"time"
 
 	"github.com/adakailabs/gocnode/config"
 	"github.com/spf13/cobra"
-
-	homedir "github.com/mitchellh/go-homedir"
-	"github.com/spf13/viper"
 )
 
 var conf *config.C
@@ -68,26 +65,10 @@ func init() {
 func initConfig() {
 	var err error
 	if conf, err = config.New(cfgFile, true, "debug"); err != nil {
+		for {
+			time.Sleep(time.Second * 10)
+			fmt.Println("config not found: ", cfgFile)
+		}
 		panic(err.Error())
-	}
-
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".gocnode" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName("gocnode")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
 }

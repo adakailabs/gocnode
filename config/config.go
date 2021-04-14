@@ -98,6 +98,7 @@ func (c *C) configViper(configFile string) error {
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("./")
 		viper.AddConfigPath("../")
+		viper.AddConfigPath("/run/secrets")
 		viper.SetConfigName("gocnode")
 	}
 
