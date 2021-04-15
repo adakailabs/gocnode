@@ -1,4 +1,4 @@
-package configfiles_test
+package cardanocfg_test
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/k0kubun/pp"
 
-	"github.com/adakailabs/gocnode/configfiles"
+	"github.com/adakailabs/gocnode/cardanocfg"
 
 	"github.com/stretchr/testify/assert"
 
@@ -25,14 +25,14 @@ func TestConfig(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	d, err2 := configfiles.New(&c.Relays[2], c)
+	d, err2 := cardanocfg.New(&c.Relays[2], c)
 	a.Nil(err2)
 
 	files := []string{
-		configfiles.ConfigJSON,
-		configfiles.TopologyJSON,
-		configfiles.ByronGenesis,
-		configfiles.ShelleyGenesis,
+		cardanocfg.ConfigJSON,
+		cardanocfg.TopologyJSON,
+		cardanocfg.ByronGenesis,
+		cardanocfg.ShelleyGenesis,
 	}
 
 	for _, file := range files {
@@ -55,11 +55,11 @@ func TestConfigTopology(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	d, err2 := configfiles.New(&c.Relays[0], c)
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
 	a.Nil(err2)
 
 	files := []string{
-		configfiles.TopologyJSON,
+		cardanocfg.TopologyJSON,
 	}
 
 	for _, file := range files {
@@ -82,11 +82,11 @@ func TestConfigTopologyProducer(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	d, err2 := configfiles.New(&c.Producers[0], c)
+	d, err2 := cardanocfg.New(&c.Producers[0], c)
 	a.Nil(err2)
 
 	files := []string{
-		configfiles.TopologyJSON,
+		cardanocfg.TopologyJSON,
 	}
 
 	for _, file := range files {
@@ -109,7 +109,7 @@ func TestConfigTestnetTopology(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	d, err2 := configfiles.New(&c.Relays[0], c)
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
 	a.Nil(err2)
 
 	relays, err3 := d.TestNetRelays()
@@ -125,7 +125,7 @@ func TestConfigMainnetTopology(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	d, err2 := configfiles.New(&c.Relays[0], c)
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
 	a.Nil(err2)
 
 	relays, err3 := d.MainNetRelays()

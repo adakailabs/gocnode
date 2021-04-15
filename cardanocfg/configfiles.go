@@ -1,4 +1,4 @@
-package configfiles
+package cardanocfg
 
 import (
 	"bytes"

@@ -67,7 +67,7 @@ func initConfig() {
 	if conf, err = config.New(cfgFile, true, "debug"); err != nil {
 		for {
 			time.Sleep(time.Second * 10)
-			fmt.Println("config not found: ", cfgFile)
+			fmt.Println("config not found: ", cfgFile, err.Error())
 		}
 		panic(err.Error())
 	}

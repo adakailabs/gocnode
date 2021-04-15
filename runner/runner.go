@@ -1,20 +1,18 @@
 package runner
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
-	"time"
+
+	"github.com/adakailabs/gocnode/prometheuscfg"
 
 	"github.com/k0kubun/pp"
 
-	"github.com/adakailabs/gocnode/configfiles"
+	"github.com/adakailabs/gocnode/cardanocfg"
 
 	"github.com/adakailabs/gocnode/config"
 	l "github.com/adakailabs/gocnode/logger"
-	"github.com/juju/errors"
 	"go.uber.org/zap"
 )
 
@@ -48,18 +46,18 @@ type cnodeArgs struct {
 }
 
 type R struct {
-	c                  *config.C
-	nodeC              *config.Node
-	nID                int
-	log                *zap.SugaredLogger
-	exporterCmdArgs    []string
-	exporterCmdPath    string
-	cardanoNodeCmdArgs []string
-	cardanoNodeCmdPath string
-	cmd                *exec.Cmd
+	c        *config.C
+	nodeC    *config.Node
+	nID      int
+	log      *zap.SugaredLogger
+	Cmd1Args []string
+	Cmd1Path string
+	Cmd0Args []string
+	Cmd0Path string
+	cmd      *exec.Cmd
 }
 
-func New(conf *config.C, nodeID int, isProducer bool) (r *R, err error) {
+func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer bool) (r *R, err error) {
 	r = &R{}
 	r.c = conf
 	if r.log, err = l.NewLogConfig(conf, "runner"); err != nil {
@@ -76,13 +74,13 @@ func New(conf *config.C, nodeID int, isProducer bool) (r *R, err error) {
 		r.nodeC = &conf.Relays[nodeID]
 	}
 
-	r.cardanoNodeCmdPath = "cardano-node"
-	r.cardanoNodeCmdArgs = make([]string, 1, 10)
-	r.cardanoNodeCmdArgs[0] = "run"
+	r.Cmd0Path = "cardano-node"
+	r.Cmd0Args = make([]string, 1, 10)
+	r.Cmd0Args[0] = "run"
 
-	r.exporterCmdPath = "node_exporter"
-	r.exporterCmdArgs = make([]string, 0, 10)
-	// r.exporterCmdArgs[0] = "node" // node_exporter --web.listen-address=\":${PROMETHEUS_NODE_EXPORT_PORT}\" &"
+	r.Cmd1Path = "node_exporter"
+	r.Cmd1Args = make([]string, 0, 10)
+	// r.Cmd1Args[0] = "node" // node_exporter --web.listen-address=\":${PROMETHEUS_NODE_EXPORT_PORT}\" &"
 
 	return r, err
 }
@@ -120,22 +118,22 @@ func (r *R) StartCnode() error {
 	cnargs.VrfKey = fmt.Sprintf("%s/node_vrf.key", r.c.SecretsPath)
 	cnargs.OpCert = fmt.Sprintf("%s/node.cert", r.c.SecretsPath)
 
-	d, err := configfiles.New(r.nodeC, r.c)
+	d, err := cardanocfg.New(r.nodeC, r.c)
 	if err != nil {
 		return err
 	}
 
-	cnargs.NodeConfig, err = d.GetConfigFile(configfiles.ConfigJSON)
+	cnargs.NodeConfig, err = d.GetConfigFile(cardanocfg.ConfigJSON)
 	if err != nil {
 		return err
 	}
 
-	cnargs.NodeTopology, err = d.GetConfigFile(configfiles.TopologyJSON)
+	cnargs.NodeTopology, err = d.GetConfigFile(cardanocfg.TopologyJSON)
 	if err != nil {
 		return err
 	}
 
-	r.cardanoNodeCmdArgs = append(r.cardanoNodeCmdArgs,
+	r.Cmd0Args = append(r.Cmd0Args,
 		cnargs.DatabasePathS,
 		cnargs.DatabasePath,
 		cnargs.SocketPathS,
@@ -151,7 +149,7 @@ func (r *R) StartCnode() error {
 	)
 
 	if r.nodeC.IsProducer {
-		r.cardanoNodeCmdArgs = append(r.cardanoNodeCmdArgs,
+		r.Cmd0Args = append(r.Cmd0Args,
 			cnargs.KesKeyS,
 			cnargs.KesKey,
 			cnargs.VrfKeyS,
@@ -161,35 +159,35 @@ func (r *R) StartCnode() error {
 		)
 	}
 
-	_, err = d.GetConfigFile(configfiles.ShelleyGenesis)
+	_, err = d.GetConfigFile(cardanocfg.ShelleyGenesis)
 	if err != nil {
 		return err
 	}
 
-	_, err = d.GetConfigFile(configfiles.ByronGenesis)
+	_, err = d.GetConfigFile(cardanocfg.ByronGenesis)
 	if err != nil {
 		return err
 	}
 
-	r.log.Info(pp.Sprint(r.cardanoNodeCmdArgs))
+	r.log.Info(pp.Sprint(r.Cmd0Args))
 
 	// node_exporter --web.listen-address=\":${PROMETHEUS_NODE_EXPORT_PORT}\" &"
-	r.exporterCmdArgs = append(r.exporterCmdArgs,
+	r.Cmd1Args = append(r.Cmd1Args,
 		fmt.Sprintf("--web.listen-address=:%d", r.nodeC.PromeNExpPort))
 
-	r.log.Info(pp.Sprint(r.exporterCmdArgs))
+	r.log.Info(pp.Sprint(r.Cmd1Args))
 
 	cmdsErr := make(chan error)
 
 	if !r.nodeC.TestMode {
 		/*go func() {
-			if err := r.Exec("node_exporter", r.exporterCmdPath, r.exporterCmdArgs); err != nil {
+			if err := r.Exec("node_exporter", r.Cmd1Path, r.Cmd1Args); err != nil {
 				cmdsErr <- err
 			}
 		}()
 		*/
 		go func() {
-			if err := r.Exec("cardano-node", r.cardanoNodeCmdPath, r.cardanoNodeCmdArgs); err != nil {
+			if err := r.Exec("cardano-node", r.Cmd0Path, r.Cmd0Args); err != nil {
 				cmdsErr <- err
 			}
 		}()
@@ -200,91 +198,50 @@ func (r *R) StartCnode() error {
 	return err
 }
 
-func (r *R) Exec(name string, cmdPath string, cmdArgs []string) (err error) {
-	var ioBufferStdOut io.ReadCloser
-	var ioBufferStdErr io.ReadCloser
+func NewPrometheusRunner(conf *config.C, nodeID int, isProducer bool) (r *R, err error) {
+	r = &R{}
+	r.c = conf
+	if r.log, err = l.NewLogConfig(conf, "runner"); err != nil {
+		return r, err
+	}
 
-	r.log.Info("cmd args: ", cmdPath, cmdArgs)
-	r.cmd = exec.Command(cmdPath, cmdArgs...)
+	r.Cmd0Path = "prometheus"
+	r.Cmd0Args = make([]string, 0, 10)
+	r.Cmd0Args = append(r.Cmd0Args, "--storage.tsdb.path=/prometheus")
+	r.Cmd0Args = append(r.Cmd0Args, "--web.console.libraries=/usr/share/prometheus/console_libraries")
+	r.Cmd0Args = append(r.Cmd0Args, "--web.console.templates=/usr/share/prometheus/consoles")
 
-	// Get a pipe to read from standard out
-	ioBufferStdOut, _ = r.cmd.StdoutPipe()
-	ioBufferStdErr, _ = r.cmd.StderrPipe()
+	// prometheus --config.file=$CONFIG_FILE_LOCAL --storage.tsdb.path=/prometheus
+	// --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles
+	return r, err
+}
 
-	r.log.Debugf("running cmd: %s ", r.cmd.String())
+func (r *R) StartPrometheus() error {
+	r.log.Info("starting prometheus")
 
-	// Make a new channel which will be used to ensure we get all output
-	done := make(chan struct{})
-
-	// Create a scannerStdErr which scans r InputC a line-by-line fashion
-	scannerStdErr := bufio.NewScanner(ioBufferStdErr)
-	scannerStdOut := bufio.NewScanner(ioBufferStdOut)
-
-	// Use the scannerStdErr to scan the output line by line and log it
-	// It's running InputC a goroutine so that it doesn't block
-	go func() {
-		// Read line by line and process it
-		for scannerStdErr.Scan() {
-			newLine := scannerStdErr.Text() + "\n"
-			fmt.Print(newLine)
-		}
-		done <- struct{}{}
-	}()
-
-	go func() {
-		// Read line by line and process it
-		for scannerStdOut.Scan() {
-			newLine := scannerStdOut.Text() + "\n"
-			fmt.Print(newLine)
-		}
-		done <- struct{}{}
-	}()
-
-	// StartCnode the command and check for errors
-	err = r.startCommand()
+	d, err := prometheuscfg.New(r.c)
 	if err != nil {
-		err = errors.Annotatef(err, "startCommand failed for %s",
-			name)
-
 		return err
 	}
-	// Wait for all output to be processed
-	<-done
 
-	// Wait for the command to finish
-	err = r.waitCommand()
-	if err != nil {
-		err = errors.Annotatef(err, "%s:",
-			name)
-		r.log.Error(err.Error())
+	var file string
+	if file, err = d.CreateConfigFile(); err != nil {
 		return err
 	}
+
+	r.Cmd0Args = append(r.Cmd0Args, fmt.Sprintf("--config.file=%s", file))
+
+	r.log.Info(pp.Sprint(r.Cmd0Args))
+
+	cmdsErr := make(chan error)
+
+	go func() {
+		if err := r.Exec("prometheus", r.Cmd0Path, r.Cmd0Args); err != nil {
+			cmdsErr <- err
+		}
+	}()
+
+	err = <-cmdsErr
 
 	return err
-}
-
-func (r *R) startCommand() error {
-	lcCmd := r.cmd.String()
-	err := r.cmd.Start()
-	if err != nil {
-		err = errors.Annotatef(err, "while attempting to start command %s",
-			lcCmd)
-		r.log.Error(err.Error())
-		time.Sleep(time.Millisecond * 500)
-		return err
-	}
-
-	return nil
-}
-
-func (r *R) waitCommand() error {
-	lcCmd := r.cmd.String()
-	err := r.cmd.Wait()
-	if err != nil {
-		err = errors.Annotatef(err, "waitCommand failed for %s",
-			lcCmd)
-		time.Sleep(time.Millisecond * 500)
-		return err
-	}
-	return nil
 }

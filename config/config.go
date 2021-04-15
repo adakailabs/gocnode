@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const PrometheusConfigPath = "/home/lovelace/prometheus/"
+
 type NodeShort struct {
 	Port uint   `mapstructure:"port"`
 	Host string `mapstructure:"host"`
@@ -19,6 +21,7 @@ type NodeShort struct {
 type Node struct {
 	Name          string
 	Host          string    `mapstructure:"host"`
+	LHost         string    `mapstructure:"host"`
 	IP            string    `mapstructure:"ip"`
 	Network       string    `mapstructure:"network"`
 	Port          uint      `mapstructure:"port"`
@@ -37,11 +40,12 @@ type Node struct {
 }
 
 type Mapped struct {
-	SecretsPath       string `mapstructure:"secrets_path"`
-	Producers         []Node `mapstructure:"producers"`
-	Relays            []Node `mapstructure:"relays"`
-	RelaysHostsList   map[string][]NodeShort
-	ProducerHostsList map[string][]NodeShort
+	SecretsPath          string `mapstructure:"secrets_path"`
+	Producers            []Node `mapstructure:"producers"`
+	Relays               []Node `mapstructure:"relays"`
+	RelaysHostsList      map[string][]NodeShort
+	ProducerHostsList    map[string][]NodeShort
+	PrometheusConfigPath string
 }
 
 type C struct {
@@ -75,6 +79,7 @@ func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 
 	m.ProducerHostsList = make(map[string][]NodeShort)
 	m.RelaysHostsList = make(map[string][]NodeShort)
+	m.PrometheusConfigPath = PrometheusConfigPath
 
 	c.Mapped = m
 
@@ -121,7 +126,7 @@ func (c *C) LogLevel() string {
 
 func (c *C) configNodes() {
 	for i := range c.Mapped.Producers {
-		c.Mapped.Producers[i].Name = fmt.Sprintf("producer%02d", i)
+		c.Mapped.Producers[i].Name = fmt.Sprintf("producer%d", i)
 
 		if c.Mapped.Producers[i].Port == 0 {
 			c.Mapped.Producers[i].Port = uint(3100 + i)
@@ -145,7 +150,7 @@ func (c *C) configNodes() {
 		c.ProducerHostsList[c.Mapped.Producers[i].Pool] = pool
 	}
 	for i := range c.Mapped.Relays {
-		c.Mapped.Relays[i].Name = fmt.Sprintf("relay%02d", i)
+		c.Mapped.Relays[i].Name = fmt.Sprintf("relay%d", i)
 
 		if c.Mapped.Relays[i].Port == 0 {
 			c.Mapped.Relays[i].Port = uint(3000 + i)

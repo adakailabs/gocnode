@@ -29,7 +29,7 @@ var startNodeCmd = &cobra.Command{
 	Short: "Start a cardano node",
 	Long:  `Start a cardano node, relay or producer, based on the passed pool configuration and ID and is-producer flags.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := runner.New(conf, id, isProducer)
+		r, err := runner.NewCardanoNodeRunner(conf, id, isProducer)
 		if err != nil {
 			return err
 		}
@@ -37,9 +37,23 @@ var startNodeCmd = &cobra.Command{
 	},
 }
 
+// startNodeCmd represents the start command
+var startPrometheus = &cobra.Command{
+	Use:   "start-prometheus",
+	Short: "Start prometheus for monitoring a cardano pool",
+	Long:  `Start prometheus for monitoring a cardano pool, based on the passed pool configuration`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		r, err := runner.NewPrometheusRunner(conf, id, isProducer)
+		if err != nil {
+			return err
+		}
+		return r.StartPrometheus()
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(startNodeCmd)
-
+	rootCmd.AddCommand(startPrometheus)
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
