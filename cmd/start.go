@@ -51,9 +51,24 @@ var startPrometheus = &cobra.Command{
 	},
 }
 
+// startNodeCmd represents the start command
+var startRTView = &cobra.Command{
+	Use:   "start-rtview",
+	Short: "Start rtview for monitoring a cardano pool",
+	Long:  `Start rtview for monitoring a cardano pool, based on the passed pool configuration`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		r, err := runner.NewRtViewRunner(conf)
+		if err != nil {
+			return err
+		}
+		return r.StartRtView()
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(startNodeCmd)
 	rootCmd.AddCommand(startPrometheus)
+	rootCmd.AddCommand(startRTView)
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/tidwall/sjson"
@@ -102,7 +103,7 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 		d.log.Info("Duration: ", eDuration)
 		if eDuration < 24*5 {
 			d.log.Info("file is recent: ", filePath)
-			return filePath, nil
+			//return filePath, nil
 		}
 	}
 
@@ -159,6 +160,48 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 			return filePath, err
 		}
 
+		type ContentsInner struct {
+			Contains string `json:"contains"`
+			Tag      string `json:"tag"`
+		}
+
+		contents0 := []interface{}{
+			ContentsInner{"cardano.epoch-validation.benchmark", "Contains"},
+			[]ContentsInner{{".monoclock.basic.", "Contains"}},
+		}
+		contents1 := []interface{}{
+			ContentsInner{"cardano.epoch-validation.benchmark", "Contains"},
+			[]ContentsInner{{"diff.RTS.cpuNs.timed.", "Contains"}},
+		}
+		contents2 := []interface{}{
+			ContentsInner{"cardano.epoch-validation.benchmark", "Contains"},
+			[]ContentsInner{{"", "Contains"}},
+		}
+		contents3 := []interface{}{
+			ContentsInner{"#ekgview.#aggregation.cardano.epoch-validation.benchmark", "StartsWith"},
+			[]ContentsInner{{"diff.RTS.gcNum.timed.", "Contains"}},
+		}
+
+		contentsx := []interface{}{
+			contents0, contents1, contents2, contents3,
+		}
+
+		if newJSON, err = sjson.SetBytes(newJSON, "mapSubtrace.KKKekgview.contents", contentsx); err != nil {
+			return filePath, err
+		}
+
+		if newJSON, err = sjson.SetBytes(newJSON, "mapSubtrace.ekgview.subtrace", "FilterTrace"); err != nil {
+			return filePath, err
+		}
+
+		if newJSON, err = sjson.SetBytes(newJSON, "mapSubtrace.cardanoXXXepoch-validationXXXutxo-stats", "NoTrace"); err != nil {
+			return filePath, err
+		}
+
+		if newJSON, err = sjson.SetBytes(newJSON, "mapSubtrace.cardanXXXnode-metrics", "Neutral"); err != nil {
+			return filePath, err
+		}
+
 		traceForwardToMap := make(map[string]interface{})
 		contents := []string{"monitor", fmt.Sprintf("%d", d.node.RtViewPort)}
 		traceForwardToMap["tag"] = "RemoteSocket"
@@ -178,12 +221,16 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 		}
 
 		var prettyJSON bytes.Buffer
-		err = json.Indent(&prettyJSON, newJSON, "", "\t")
+		err = json.Indent(&prettyJSON, newJSON, "", "  ")
 		if err != nil {
 			return filePath, err
 		}
 
-		err = ioutil.WriteFile(filePath, prettyJSON.Bytes(), os.ModePerm)
+		JSONString := string(prettyJSON.Bytes())
+		JSONString = strings.Replace(JSONString, "XXX", ".", -1)
+		JSONString = strings.Replace(JSONString, "KKK", "#", 1)
+
+		err = ioutil.WriteFile(filePath, []byte(JSONString), os.ModePerm)
 		if err != nil {
 			return filePath, err
 		}

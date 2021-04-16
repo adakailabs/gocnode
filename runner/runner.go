@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/adakailabs/gocnode/rtview"
+
 	"github.com/adakailabs/gocnode/prometheuscfg"
 
 	"github.com/k0kubun/pp"
@@ -80,7 +82,6 @@ func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer bool) (r *R, er
 
 	r.Cmd1Path = "node_exporter"
 	r.Cmd1Args = make([]string, 0, 10)
-	// r.Cmd1Args[0] = "node" // node_exporter --web.listen-address=\":${PROMETHEUS_NODE_EXPORT_PORT}\" &"
 
 	return r, err
 }
@@ -237,6 +238,54 @@ func (r *R) StartPrometheus() error {
 
 	go func() {
 		if err := r.Exec("prometheus", r.Cmd0Path, r.Cmd0Args); err != nil {
+			cmdsErr <- err
+		}
+	}()
+
+	err = <-cmdsErr
+
+	return err
+}
+
+func NewRtViewRunner(conf *config.C) (r *R, err error) {
+	r = &R{}
+	r.c = conf
+	if r.log, err = l.NewLogConfig(conf, "runner"); err != nil {
+		return r, err
+	}
+
+	r.Cmd0Path = "/usr/local/rt-view/cardano-rt-view"
+	r.Cmd0Args = make([]string, 0, 10)
+	r.Cmd0Args = append(r.Cmd0Args, "--static")
+	r.Cmd0Args = append(r.Cmd0Args, "/usr/local/rt-view/static")
+
+	return r, err
+}
+
+func (r *R) StartRtView() error {
+	r.log.Info("starting rtview")
+
+	d, err := rtview.New(r.c)
+	if err != nil {
+		return err
+	}
+
+	var file string
+	if file, err = d.CreateConfigFile(); err != nil {
+		return err
+	}
+	// --port 8666 --config $CONFIG_FILE_LOCAL
+	r.Cmd0Args = append(r.Cmd0Args, "--port")
+	r.Cmd0Args = append(r.Cmd0Args, fmt.Sprintf("%d", 8666))
+	r.Cmd0Args = append(r.Cmd0Args, "--config")
+	r.Cmd0Args = append(r.Cmd0Args, file)
+
+	r.log.Info(pp.Sprint(r.Cmd0Args))
+
+	cmdsErr := make(chan error)
+
+	go func() {
+		if err := r.Exec("rtview", r.Cmd0Path, r.Cmd0Args); err != nil {
 			cmdsErr <- err
 		}
 	}()

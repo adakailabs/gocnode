@@ -13,21 +13,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-/*
-
-  - job_name: '{{name-node}}'
-    scrape_interval: 5s
-    static_configs:
-      - targets: ['{{host}}:{{node}}']
-
-  - job_name: '{{name-cardano}}'
-    scrape_interval: 5s
-    static_configs:
-      - targets: ['{{host}}:{{prometheus}}']
-"
-
-*/
-
 type PromJob struct {
 	JobName        string        `yaml:"job_name"`
 	ScrapeInterval time.Duration `yaml:"scrape_interval"`
