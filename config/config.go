@@ -20,23 +20,29 @@ type NodeShort struct {
 
 type Node struct {
 	Name          string
-	Host          string    `mapstructure:"host"`
-	LHost         string    `mapstructure:"host"`
-	IP            string    `mapstructure:"ip"`
-	Network       string    `mapstructure:"network"`
-	Port          uint      `mapstructure:"port"`
-	Era           string    `mapstructure:"era"`
-	Peers         uint      `mapstructure:"peers"`
-	RtViewPort    uint      `mapstructure:"rtview_port"`
-	PromeNExpPort uint      `mapstructure:"prom_node_port"`
-	TestMode      bool      `mapstructure:"test_mode"`
-	Pool          string    `mapstructure:"pool"`
-	Producer      NodeShort `mapstructure:"producer"`
-	IsProducer    bool      `mapstructure:"is_producer"`
-	RootDir       string    `mapstructure:"root_dir"`
-	NetworkMagic  uint64
-	TmpDir        string
-	Relays        []NodeShort
+	Host          string      `mapstructure:"host"`
+	LHost         string      `mapstructure:"host"`
+	IP            string      `mapstructure:"ip"`
+	Network       string      `mapstructure:"network"`
+	Port          uint        `mapstructure:"port"`
+	Era           string      `mapstructure:"era"`
+	Peers         uint        `mapstructure:"peers"`
+	RtViewPort    uint        `mapstructure:"rtview_port"`
+	PromeNExpPort uint        `mapstructure:"prom_node_port"`
+	TestMode      bool        `mapstructure:"test_mode"`
+	Pool          string      `mapstructure:"pool"`
+	Producers     []NodeShort `mapstructure:"producer"`
+	IsProducer    bool        `mapstructure:"is_producer"`
+	RootDir       string      `mapstructure:"root_dir"`
+
+	ExtRelays   []NodeShort `mapstructure:"ext_relays"`
+	ExtProducer []NodeShort `mapstructure:"ext_producer"`
+
+	NetworkMagic uint64
+	TmpDir       string
+	Relays       []NodeShort
+
+	PassiveMode bool
 }
 
 type Mapped struct {
@@ -182,15 +188,16 @@ func (c *C) configNodes() {
 		if !ok {
 			c.log.Warn("producer %s does not have relays associated", c.Mapped.Producers[i].Name)
 		}
+		c.Mapped.Producers[i].Relays = append(c.Mapped.Producers[i].Relays, c.Mapped.Producers[i].ExtRelays...)
 	}
 
 	for i := range c.Mapped.Relays {
-		producerList, ok := c.ProducerHostsList[c.Mapped.Relays[i].Pool]
+		var ok bool
+		c.Mapped.Relays[i].Producers, ok = c.ProducerHostsList[c.Mapped.Relays[i].Pool]
 		if !ok {
 			c.log.Warnf("producer %s does not have producers associated", c.Mapped.Relays[i].Name)
-		} else {
-			c.Mapped.Relays[i].Producer = producerList[0]
 		}
+		c.Mapped.Relays[i].Producers = append(c.Mapped.Relays[i].Producers, c.Mapped.Relays[i].ExtProducer...)
 	}
 
 	for i := range c.Mapped.Producers {

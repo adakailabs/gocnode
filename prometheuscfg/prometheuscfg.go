@@ -88,6 +88,17 @@ func (c *Cfg) GetYaml() []byte {
 		pcfg.ScrapeConfigs = append(pcfg.ScrapeConfigs, p1, p2)
 	}
 
+	for _, r := range c.conf.Producers {
+		exporterName := fmt.Sprintf("%s-exporter", r.Name)
+		cardanoName := fmt.Sprintf("%s-cardano", r.Name)
+		pExpHost := fmt.Sprintf("%s:%d", r.Name, r.PromeNExpPort)
+		pCardHost := fmt.Sprintf("%s:%s", r.Name, "12798")
+		p1 := NewPromJob(exporterName, pExpHost, time.Second*5, time.Second*5)
+		p2 := NewPromJob(cardanoName, pCardHost, time.Second*5, time.Second*5)
+		pcfg.ScrapeConfigs = append(pcfg.ScrapeConfigs, p1, p2)
+	}
+
+
 	pcfg.Global = g
 
 	d, err := yaml.Marshal(&pcfg)

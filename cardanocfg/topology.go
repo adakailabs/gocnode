@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"os"
 	"time"
 
@@ -22,17 +23,42 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 
 	if !d.node.IsProducer {
 		d.log.Info("node is not producer")
-		top, err = d.DownloadTopologyJSON()
+		top, err = d.DownloadTopologyJSON(d.node.Network)
 		if err != nil {
 			return err
 		}
-		topOthers, er := d.MainNetRelays()
-		if er != nil {
-			return er
+		var topOthers Topology
+		if d.node.Network == Mainnet {
+			topOthers, err = d.MainNetRelays()
+		} else {
+			topOthers, err = d.TestNetRelays()
+		}
+		if err != nil {
+			return err
 		}
 		top.Producers = append(top.Producers, topOthers.Producers...)
+		actualProducersdd := make([]Producer, 0, 4)
+		for _, p := range d.node.ExtProducer {
+			aP := Producer{}
+			aP.Addr = p.Host
+			aP.Port = p.Port
+			aP.Atype = "regular"
+			aP.Valency = 1
+			actualProducersdd = append(actualProducersdd, aP)
+		}
+		for _, p := range d.conf.Producers {
+			if d.node.Pool == p.Pool {
+				aP := Producer{}
+				aP.Addr = p.Host
+				aP.Port = p.Port
+				aP.Atype = "regular"
+				aP.Valency = 1
+				actualProducersdd = append(actualProducersdd, aP)
+			}
+		}
+		top.Producers = append(top.Producers, actualProducersdd...)
 	} else {
-		d.log.Info("node is not producer")
+		d.log.Info("node is producer")
 		top = Topology{}
 		top.Producers = make([]Producer, len(d.node.Relays))
 
@@ -57,13 +83,13 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	return nil
 }
 
-func (d *Downloader) DownloadTopologyJSON() (Topology, error) {
+func (d *Downloader) DownloadTopologyJSON(net string) (Topology, error) {
 	filePathTmpTop, err := d.GetFilePath(TopologyJSON, true)
 	if err != nil {
 		return Topology{}, err
 	}
 
-	url := fmt.Sprintf("%s/%s-%s", URI, Mainnet, TopologyJSON)
+	url := fmt.Sprintf("%s/%s-%s", URI, net, TopologyJSON)
 
 	err = d.DownloadFile(filePathTmpTop, url)
 	if err != nil {
@@ -105,6 +131,7 @@ func (d *Downloader) TestNetRelays() (Topology, error) {
 	}
 
 	newProduces := make([]Producer, 0, len(topOthers.Producers))
+	finalProducers := make([]Producer, 0, 30)
 
 	for _, p := range topOthers.Producers {
 		found := false
@@ -130,7 +157,35 @@ func (d *Downloader) TestNetRelays() (Topology, error) {
 				newProduces[i]
 		})
 
-	topOthers.Producers = newProduces[0:d.node.Peers]
+	// topOthers.Producers = newProduces[0:d.node.Peers]
+
+	producersTmp := newProduces[0 : d.node.Peers*3]
+	for _, p := range producersTmp {
+		now := time.Now()
+		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
+		// err := conn.(*net.TCPConn).SetKeepAlive(true)
+		if err != nil {
+			d.log.Warnf("%s: %s", p.Addr, err.Error())
+		} else {
+			duration := time.Since(now)
+			conn.Close()
+
+			if duration.Milliseconds() > 300 {
+				d.log.Warnf("relay is bad: %s -- %d ms", p.Addr, duration.Milliseconds())
+			} else {
+				d.log.Infof("relay is good: %s -- %d ms", p.Addr, duration.Milliseconds())
+				finalProducers = append(finalProducers, p)
+			}
+		}
+	}
+	if len(finalProducers) >= int(d.node.Peers) {
+		topOthers.Producers = finalProducers[0:d.node.Peers]
+	} else {
+		topOthers.Producers = finalProducers
+	}
+	if len(finalProducers) == 0 {
+		panic("no relays found")
+	}
 
 	return topOthers, nil
 }
@@ -154,7 +209,7 @@ func (d *Downloader) MainNetRelays() (Topology, error) {
 	}
 
 	newProduces := make([]Producer, 0, len(topOthers.Producers))
-
+	finalProducers := make([]Producer, 0, 30)
 	for _, p := range topOthers.Producers {
 		found := false
 
@@ -177,7 +232,28 @@ func (d *Downloader) MainNetRelays() (Topology, error) {
 				newProduces[i]
 		})
 
-	topOthers.Producers = newProduces[0:d.node.Peers]
+	producersTmp := newProduces[0 : d.node.Peers*3]
+	for _, p := range producersTmp {
+		now := time.Now()
+		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
+		// err := conn.(*net.TCPConn).SetKeepAlive(true)
+		if err != nil {
+			d.log.Errorf("%s: %s", p.Addr, err.Error())
+		} else {
+			duration := time.Since(now)
+			conn.Close()
+			d.log.Infof("relay is good: %s -- %d ms", p.Addr, duration.Milliseconds())
+			finalProducers = append(finalProducers, p)
+		}
+	}
+	if len(finalProducers) >= int(d.node.Peers) {
+		topOthers.Producers = finalProducers[0:d.node.Peers]
+	} else {
+		topOthers.Producers = finalProducers
+	}
+	if len(finalProducers) == 0 {
+		panic("no relays found")
+	}
 
 	return topOthers, nil
 }

@@ -50,7 +50,7 @@ func TestConfig(t *testing.T) {
 
 func TestConfigTopology(t *testing.T) {
 	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
+	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/stack/secrets/gocnode.yaml"
 
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)

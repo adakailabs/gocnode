@@ -18,11 +18,17 @@ relays:
     host: "roci-relay0.adakailabs.com"
     ip: "192.168.100.46"
     network: "mainnet"
+    producer_host: rocinante.mooo.com
+    producer_port: 3100
     port: 3000
     era: shelley
     rtview_port: 6600
     test_mode: false
     peers: 5
+    ext_producer:
+      host: "roci-relay00.adakailabs.com"
+      port: 3000
+
 
   - pool: "dulcinea"
     host: "roci-relay1.adakailabs.com"

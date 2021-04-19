@@ -3,7 +3,7 @@ GOLANG-CI-CONFIG_URI=https://raw.githubusercontent.com/lagarciag/dotfiles/master
 PACKAGE := ""
 
 tests: golang-ci .golangci.yaml
-	golangci-lint run --fix --tests  -v 
+	#golangci-lint run --fix --tests  -v 
 	#go test github.hpe.com/hpe-networking/${PACKAGE}/...
 
 .PHONY: golang-ci
@@ -17,3 +17,7 @@ endif
 
 .golangci.yaml:
 	wget ${GOLANG-CI-CONFIG_URI}
+
+.PHONY: gocnode
+gocnode:
+	go build -v gocnode.go

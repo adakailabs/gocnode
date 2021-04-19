@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/adakailabs/gocnode/rtview"
 
@@ -56,10 +57,11 @@ type R struct {
 	Cmd1Path string
 	Cmd0Args []string
 	Cmd0Path string
-	cmd      *exec.Cmd
+	cmd0     *exec.Cmd
+	cmd1     *exec.Cmd
 }
 
-func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer bool) (r *R, err error) {
+func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer, passive bool) (r *R, err error) {
 	r = &R{}
 	r.c = conf
 	if r.log, err = l.NewLogConfig(conf, "runner"); err != nil {
@@ -71,6 +73,12 @@ func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer bool) (r *R, er
 	if isProducer {
 		r.log.Info("node is a producer")
 		r.nodeC = &conf.Producers[nodeID]
+		if passive {
+			r.nodeC.PassiveMode = passive
+		}
+		if isProducer {
+			r.nodeC.IsProducer = isProducer
+		}
 	} else {
 		r.log.Infof("node is a relay, with ID: %d", nodeID)
 		r.nodeC = &conf.Relays[nodeID]
@@ -140,7 +148,8 @@ func (r *R) StartCnode() error {
 		cnargs.SocketPathS,
 		cnargs.SocketPath,
 		cnargs.NodePortS,
-		cnargs.NodePort,
+		//cnargs.NodePort,
+		"3001",
 		cnargs.HostAddressS,
 		cnargs.HostAddress,
 		cnargs.NodeTopologyS,
@@ -149,7 +158,7 @@ func (r *R) StartCnode() error {
 		cnargs.NodeConfig,
 	)
 
-	if r.nodeC.IsProducer {
+	if r.nodeC.IsProducer && !r.nodeC.PassiveMode {
 		r.Cmd0Args = append(r.Cmd0Args,
 			cnargs.KesKeyS,
 			cnargs.KesKey,
@@ -181,14 +190,15 @@ func (r *R) StartCnode() error {
 	cmdsErr := make(chan error)
 
 	if !r.nodeC.TestMode {
-		/*go func() {
-			if err := r.Exec("node_exporter", r.Cmd1Path, r.Cmd1Args); err != nil {
+		go func() {
+			if err := r.Exec("node_exporter", r.Cmd1Path, r.Cmd1Args, r.cmd1); err != nil {
 				cmdsErr <- err
 			}
 		}()
-		*/
+
 		go func() {
-			if err := r.Exec("cardano-node", r.Cmd0Path, r.Cmd0Args); err != nil {
+			time.Sleep(time.Second * 2)
+			if err := r.Exec("cardano-node", r.Cmd0Path, r.Cmd0Args, r.cmd0); err != nil {
 				cmdsErr <- err
 			}
 		}()
@@ -237,7 +247,7 @@ func (r *R) StartPrometheus() error {
 	cmdsErr := make(chan error)
 
 	go func() {
-		if err := r.Exec("prometheus", r.Cmd0Path, r.Cmd0Args); err != nil {
+		if err := r.Exec("prometheus", r.Cmd0Path, r.Cmd0Args, r.cmd0); err != nil {
 			cmdsErr <- err
 		}
 	}()
@@ -285,7 +295,7 @@ func (r *R) StartRtView() error {
 	cmdsErr := make(chan error)
 
 	go func() {
-		if err := r.Exec("rtview", r.Cmd0Path, r.Cmd0Args); err != nil {
+		if err := r.Exec("rtview", r.Cmd0Path, r.Cmd0Args, r.cmd0); err != nil {
 			cmdsErr <- err
 		}
 	}()

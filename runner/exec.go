@@ -5,23 +5,25 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 )
 
-func (r *R) Exec(name string, cmdPath string, cmdArgs []string) (err error) {
+func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err error) {
 	var ioBufferStdOut io.ReadCloser
 	var ioBufferStdErr io.ReadCloser
 
-	r.log.Info("cmd args: ", cmdPath, cmdArgs)
-	r.cmd = exec.Command(cmdPath, cmdArgs...)
+	r.log.Info("cmd0 args: ", cmdPath, cmdArgs)
+	cmd = exec.Command(cmdPath, cmdArgs...)
 
 	// Get a pipe to read from standard out
-	ioBufferStdOut, _ = r.cmd.StdoutPipe()
-	ioBufferStdErr, _ = r.cmd.StderrPipe()
+	ioBufferStdOut, _ = cmd.StdoutPipe()
+	ioBufferStdErr, _ = cmd.StderrPipe()
 
-	r.log.Debugf("running cmd: %s ", r.cmd.String())
+	r.log.Debugf("running cmd0: %s ", cmd.String())
 
 	// Make a new channel which will be used to ensure we get all output
 	done := make(chan struct{})
@@ -36,6 +38,9 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string) (err error) {
 		// Read line by line and process it
 		for scannerStdErr.Scan() {
 			newLine := scannerStdErr.Text() + "\n"
+			if strings.Contains(newLine,"Error") {
+				r.processError(newLine)
+			}
 			fmt.Print(newLine)
 		}
 		done <- struct{}{}
@@ -45,13 +50,16 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string) (err error) {
 		// Read line by line and process it
 		for scannerStdOut.Scan() {
 			newLine := scannerStdOut.Text() + "\n"
+			if strings.Contains(newLine,"Error") {
+				r.processError(newLine)
+			}
 			fmt.Print(newLine)
 		}
 		done <- struct{}{}
 	}()
 
 	// StartCnode the command and check for errors
-	err = r.startCommand()
+	err = r.startCommand(cmd)
 	if err != nil {
 		err = errors.Annotatef(err, "startCommand failed for %s",
 			name)
@@ -62,7 +70,7 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string) (err error) {
 	<-done
 
 	// Wait for the command to finish
-	err = r.waitCommand()
+	err = r.waitCommand(cmd)
 	if err != nil {
 		err = errors.Annotatef(err, "%s:",
 			name)
@@ -73,9 +81,21 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string) (err error) {
 	return err
 }
 
-func (r *R) startCommand() error {
-	lcCmd := r.cmd.String()
-	err := r.cmd.Start()
+
+func (d *R)processError(line string)  {
+	// Application Exception: 76.255.14.156:3005 ExceededTimeLimit
+	timeRe := regexp.MustCompile(`Application Exception: (\d+\.+\d+\.+\d+\.+\d+:\d+) ExceededTimeLimit`)
+	if timeRe.Match([]byte(line)) {
+		l  := timeRe.FindStringSubmatch(line)
+		d.log.Errorf("time limit error: %a", l[1])
+	}
+
+}
+
+
+func (r *R) startCommand(cmd *exec.Cmd) error {
+	lcCmd := cmd.String()
+	err := cmd.Start()
 	if err != nil {
 		err = errors.Annotatef(err, "while attempting to start command %s",
 			lcCmd)
@@ -87,9 +107,9 @@ func (r *R) startCommand() error {
 	return nil
 }
 
-func (r *R) waitCommand() error {
-	lcCmd := r.cmd.String()
-	err := r.cmd.Wait()
+func (r *R) waitCommand(cmd *exec.Cmd) error {
+	lcCmd := cmd.String()
+	err := cmd.Wait()
 	if err != nil {
 		err = errors.Annotatef(err, "waitCommand failed for %s",
 			lcCmd)

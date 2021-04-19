@@ -22,6 +22,7 @@ import (
 
 var id int
 var isProducer bool
+var passive bool
 
 // startNodeCmd represents the start command
 var startNodeCmd = &cobra.Command{
@@ -29,7 +30,7 @@ var startNodeCmd = &cobra.Command{
 	Short: "Start a cardano node",
 	Long:  `Start a cardano node, relay or producer, based on the passed pool configuration and ID and is-producer flags.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := runner.NewCardanoNodeRunner(conf, id, isProducer)
+		r, err := runner.NewCardanoNodeRunner(conf, id, isProducer, passive)
 		if err != nil {
 			return err
 		}
@@ -76,6 +77,7 @@ func init() {
 
 	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
 	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
+	startNodeCmd.PersistentFlags().BoolVarP(&passive, "passive", "a", false, "starts this producer in passive mode (as a relay")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
