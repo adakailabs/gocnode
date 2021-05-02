@@ -22,7 +22,7 @@ func TestConfig(t *testing.T) {
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
-	c, err := config.New(cfgFile, true, "debug")
+	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
 
 	d, err2 := cardanocfg.New(&c.Relays[2], c)
@@ -52,7 +52,7 @@ func TestConfigTopology(t *testing.T) {
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/stack/secrets/gocnode.yaml"
 
-	c, err := config.New(cfgFile, true, "debug")
+	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
 
 	d, err2 := cardanocfg.New(&c.Relays[0], c)
@@ -79,7 +79,7 @@ func TestConfigTopologyProducer(t *testing.T) {
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
-	c, err := config.New(cfgFile, true, "debug")
+	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
 
 	d, err2 := cardanocfg.New(&c.Producers[0], c)
@@ -106,7 +106,7 @@ func TestConfigTestnetTopology(t *testing.T) {
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
-	c, err := config.New(cfgFile, true, "debug")
+	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
 
 	d, err2 := cardanocfg.New(&c.Relays[0], c)
@@ -122,7 +122,7 @@ func TestConfigMainnetTopology(t *testing.T) {
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
-	c, err := config.New(cfgFile, true, "debug")
+	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
 
 	d, err2 := cardanocfg.New(&c.Relays[0], c)

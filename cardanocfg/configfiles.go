@@ -45,6 +45,7 @@ type Producer struct {
 	Addr    string `json:"addr"`
 	Port    uint   `json:"port"`
 	Valency uint   `json:"valency"`
+	Debug   string `json:"debug"`
 }
 
 func New(n *config.Node, c *config.C) (*Downloader, error) {
@@ -103,7 +104,6 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 		d.log.Info("Duration: ", eDuration)
 		if eDuration < 24*5 {
 			d.log.Info("file is recent: ", filePath)
-			//return filePath, nil
 		}
 	}
 
@@ -142,17 +142,24 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 			"cardano.node.DnsSubscription",
 			"cardano.node.ErrorPolicy",
 			"cardano.node.Handshake",
-			"ecardano.node.IpSubscription",
+			"cardano.node.IpSubscription",
 			"cardano.node.LocalErrorPolicy",
 			"cardano.node.LocalHandshake",
 			"cardano.node.Mux",
 		}
 
 		for _, key := range keys {
-			if key == "cardano.node.metrics" || key == "cardano.node.resources" {
+			switch key {
+			case "cardano.node.metrics":
 				mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
-			} else {
-				mapBackEnd[key] = []string{"TraceForwarderBK"}
+			case "cardano.node.resources":
+				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK", "EKGViewBK"}
+			case "cardano.node.IpSubscription":
+				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+			case "cardano.node.Handshake":
+				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+			default:
+				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
 			}
 		}
 
@@ -220,13 +227,33 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 			return filePath, err
 		}
 
+		d.log.Infof("setting min severity for node %d to %s", d.node.Network, d.node.LogMinSeverity)
+		if newJSON, err = sjson.SetBytes(newJSON, "minSeverity", d.node.LogMinSeverity); err != nil {
+			return filePath, err
+		}
+
+		traces := []string{
+			"TraceBlockFetchClient",
+			"TraceBlockFetchDecisions",
+			"TraceBlockFetchProtocol",
+			"TraceBlockFetchProtocolSerialised",
+			"TraceBlockFetchServer",
+			"TraceHandshake",
+		}
+
+		for _, trace := range traces {
+			if newJSON, err = sjson.SetBytes(newJSON, trace, true); err != nil {
+				return filePath, err
+			}
+		}
+
 		var prettyJSON bytes.Buffer
 		err = json.Indent(&prettyJSON, newJSON, "", "  ")
 		if err != nil {
 			return filePath, err
 		}
 
-		JSONString := string(prettyJSON.Bytes())
+		JSONString := prettyJSON.String()
 		JSONString = strings.Replace(JSONString, "XXX", ".", -1)
 		JSONString = strings.Replace(JSONString, "KKK", "#", 1)
 
@@ -248,10 +275,11 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 			return filePath, err
 		}
 		err = d.DownloadFile(filePath, url)
-		if d.node.Network == Testnet {
-			jq := gojsonq.New().File(filePath)
-			d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
-		}
+
+		jq := gojsonq.New().File(filePath)
+
+		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)
 
 	case TopologyJSON:
 		err = d.DownloadAndSetTopologyFile()

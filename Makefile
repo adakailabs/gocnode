@@ -1,3 +1,4 @@
+export VERSION
 GOLANG-CI := $(shell  command -v  golangci-lint version  2> /dev/null)
 GOLANG-CI-CONFIG_URI=https://raw.githubusercontent.com/lagarciag/dotfiles/master/go/.golangci.yaml
 PACKAGE := ""
@@ -5,6 +6,9 @@ PACKAGE := ""
 tests: golang-ci .golangci.yaml
 	#golangci-lint run --fix --tests  -v 
 	#go test github.hpe.com/hpe-networking/${PACKAGE}/...
+
+GTAG=$(shell git describe --always)
+GVERSION=${VERSION}-${GTAG}
 
 .PHONY: golang-ci
 golang-ci:
@@ -20,4 +24,7 @@ endif
 
 .PHONY: gocnode
 gocnode:
-	go build -v gocnode.go
+	go build -ldflags "-s -w -X main.Version='${GVERSION}'" -v gocnode.go
+
+tversion:
+	@echo ${GVERSION}

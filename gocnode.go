@@ -15,8 +15,25 @@ limitations under the License.
 */
 package main
 
-import "github.com/adakailabs/gocnode/cmd"
+import (
+	"fmt"
+
+	"github.com/CrowdSurge/banner"
+	"github.com/adakailabs/gocnode/cmd"
+)
+
+// Version Build variable is set at compilation time, to set pass -ldflags "-X main.Build <build sha1>" to go build
+var Version string
 
 func main() {
+	version()
 	cmd.Execute()
+}
+
+func version() {
+	fmt.Printf("========================================")
+	banner.Print("gocnode")
+	fmt.Println("========================================")
+	fmt.Printf("\nversion:%s\n", Version)
+	fmt.Println("========================================")
 }

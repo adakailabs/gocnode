@@ -21,7 +21,7 @@ func TestConfig(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	r, err := runner.NewCardanoNodeRunner(c, 2, false)
+	r, err := runner.NewCardanoNodeRunner(c, 2, false, false)
 	a.Nil(err)
 
 	err = r.StartCnode()

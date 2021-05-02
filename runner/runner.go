@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/adakailabs/gocnode/topologyupdater"
+
 	"github.com/adakailabs/gocnode/rtview"
 
 	"github.com/adakailabs/gocnode/prometheuscfg"
@@ -51,7 +53,7 @@ type cnodeArgs struct {
 type R struct {
 	c        *config.C
 	nodeC    *config.Node
-	nID      int
+	nodeID   int
 	log      *zap.SugaredLogger
 	Cmd1Args []string
 	Cmd1Path string
@@ -68,7 +70,7 @@ func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer, passive bool) 
 		return r, err
 	}
 
-	r.nID = nodeID
+	r.nodeID = nodeID
 
 	if isProducer {
 		r.log.Info("node is a producer")
@@ -96,6 +98,7 @@ func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer, passive bool) 
 
 func (r *R) StartCnode() error {
 	r.log.Info("starting gocnode")
+
 	cnargs := cnodeArgs{}
 	cnargs.DatabasePathS = "--database-path"
 	cnargs.SocketPathS = "--socket-path"
@@ -148,7 +151,6 @@ func (r *R) StartCnode() error {
 		cnargs.SocketPathS,
 		cnargs.SocketPath,
 		cnargs.NodePortS,
-		//cnargs.NodePort,
 		"3001",
 		cnargs.HostAddressS,
 		cnargs.HostAddress,
@@ -191,15 +193,39 @@ func (r *R) StartCnode() error {
 
 	if !r.nodeC.TestMode {
 		go func() {
-			if err := r.Exec("node_exporter", r.Cmd1Path, r.Cmd1Args, r.cmd1); err != nil {
-				cmdsErr <- err
+			if er := r.Exec("node_exporter", r.Cmd1Path, r.Cmd1Args, r.cmd1); er != nil {
+				cmdsErr <- er
 			}
 		}()
 
 		go func() {
 			time.Sleep(time.Second * 2)
-			if err := r.Exec("cardano-node", r.Cmd0Path, r.Cmd0Args, r.cmd0); err != nil {
-				cmdsErr <- err
+			if er := r.Exec("cardano-node", r.Cmd0Path, r.Cmd0Args, r.cmd0); er != nil {
+				cmdsErr <- er
+			}
+		}()
+
+		ticker := time.NewTicker(time.Hour)
+
+		go func() {
+			if r.nodeC.IsProducer {
+				return
+			}
+			tu, er := topologyupdater.New(r.c, r.nodeID)
+			if er != nil {
+				cmdsErr <- er
+			}
+			r.log.Info("ready")
+			for range ticker.C {
+				code, e := tu.Ping()
+				if e != nil {
+					r.log.Error(e.Error())
+				}
+				if code < 300 {
+					r.log.Info("code is good:", code)
+				} else {
+					r.log.Error("return code:", code)
+				}
 			}
 		}()
 	}
@@ -218,9 +244,10 @@ func NewPrometheusRunner(conf *config.C, nodeID int, isProducer bool) (r *R, err
 
 	r.Cmd0Path = "prometheus"
 	r.Cmd0Args = make([]string, 0, 10)
-	r.Cmd0Args = append(r.Cmd0Args, "--storage.tsdb.path=/prometheus")
-	r.Cmd0Args = append(r.Cmd0Args, "--web.console.libraries=/usr/share/prometheus/console_libraries")
-	r.Cmd0Args = append(r.Cmd0Args, "--web.console.templates=/usr/share/prometheus/consoles")
+	r.Cmd0Args = append(r.Cmd0Args,
+		"--storage.tsdb.path=/prometheus",
+		"--web.console.libraries=/usr/share/prometheus/console_libraries",
+		"--web.console.templates=/usr/share/prometheus/consoles")
 
 	// prometheus --config.file=$CONFIG_FILE_LOCAL --storage.tsdb.path=/prometheus
 	// --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles
@@ -247,8 +274,8 @@ func (r *R) StartPrometheus() error {
 	cmdsErr := make(chan error)
 
 	go func() {
-		if err := r.Exec("prometheus", r.Cmd0Path, r.Cmd0Args, r.cmd0); err != nil {
-			cmdsErr <- err
+		if er := r.Exec("prometheus", r.Cmd0Path, r.Cmd0Args, r.cmd0); er != nil {
+			cmdsErr <- er
 		}
 	}()
 
@@ -266,8 +293,9 @@ func NewRtViewRunner(conf *config.C) (r *R, err error) {
 
 	r.Cmd0Path = "/usr/local/rt-view/cardano-rt-view"
 	r.Cmd0Args = make([]string, 0, 10)
-	r.Cmd0Args = append(r.Cmd0Args, "--static")
-	r.Cmd0Args = append(r.Cmd0Args, "/usr/local/rt-view/static")
+	r.Cmd0Args = append(r.Cmd0Args,
+		"--static",
+		"/usr/local/rt-view/static")
 
 	return r, err
 }
@@ -285,18 +313,19 @@ func (r *R) StartRtView() error {
 		return err
 	}
 	// --port 8666 --config $CONFIG_FILE_LOCAL
-	r.Cmd0Args = append(r.Cmd0Args, "--port")
-	r.Cmd0Args = append(r.Cmd0Args, fmt.Sprintf("%d", 8666))
-	r.Cmd0Args = append(r.Cmd0Args, "--config")
-	r.Cmd0Args = append(r.Cmd0Args, file)
+	r.Cmd0Args = append(r.Cmd0Args,
+		"--port",
+		fmt.Sprintf("%d", 8666),
+		"--config",
+		file)
 
 	r.log.Info(pp.Sprint(r.Cmd0Args))
 
 	cmdsErr := make(chan error)
 
 	go func() {
-		if err := r.Exec("rtview", r.Cmd0Path, r.Cmd0Args, r.cmd0); err != nil {
-			cmdsErr <- err
+		if er := r.Exec("rtview", r.Cmd0Path, r.Cmd0Args, r.cmd0); er != nil {
+			cmdsErr <- er
 		}
 	}()
 

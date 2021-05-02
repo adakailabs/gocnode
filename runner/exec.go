@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 )
 
-func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err error) {
+func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err error) {
 	var ioBufferStdOut io.ReadCloser
 	var ioBufferStdErr io.ReadCloser
 
@@ -20,8 +20,14 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (
 	cmd = exec.Command(cmdPath, cmdArgs...)
 
 	// Get a pipe to read from standard out
-	ioBufferStdOut, _ = cmd.StdoutPipe()
-	ioBufferStdErr, _ = cmd.StderrPipe()
+	ioBufferStdOut, err = cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	ioBufferStdErr, err = cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
 
 	r.log.Debugf("running cmd0: %s ", cmd.String())
 
@@ -30,7 +36,12 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (
 
 	// Create a scannerStdErr which scans r InputC a line-by-line fashion
 	scannerStdErr := bufio.NewScanner(ioBufferStdErr)
+	scannerStdErrBuf := make([]byte, 0, 64*1024)
+	scannerStdErr.Buffer(scannerStdErrBuf, 1024*1024)
+
 	scannerStdOut := bufio.NewScanner(ioBufferStdOut)
+	scannerStdOutBuf := make([]byte, 0, 64*1024)
+	scannerStdOut.Buffer(scannerStdOutBuf, 1024*1024)
 
 	// Use the scannerStdErr to scan the output line by line and log it
 	// It's running InputC a goroutine so that it doesn't block
@@ -38,11 +49,15 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (
 		// Read line by line and process it
 		for scannerStdErr.Scan() {
 			newLine := scannerStdErr.Text() + "\n"
-			if strings.Contains(newLine,"Error") {
+			fmt.Print(newLine)
+			if strings.Contains(newLine, "Error") {
 				r.processError(newLine)
 			}
-			fmt.Print(newLine)
 		}
+		if scannerStdErr.Err() != nil {
+			r.log.Error("STDERR: ", scannerStdErr.Err())
+		}
+		r.log.Info("stderr processing finished")
 		done <- struct{}{}
 	}()
 
@@ -50,11 +65,15 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (
 		// Read line by line and process it
 		for scannerStdOut.Scan() {
 			newLine := scannerStdOut.Text() + "\n"
-			if strings.Contains(newLine,"Error") {
+			fmt.Print(newLine)
+			if strings.Contains(newLine, "Error") {
 				r.processError(newLine)
 			}
-			fmt.Print(newLine)
 		}
+		if scannerStdOut.Err() != nil {
+			r.log.Error("STDOUT: ", scannerStdOut.Err())
+		}
+		r.log.Info("stdout processing finished")
 		done <- struct{}{}
 	}()
 
@@ -67,8 +86,9 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (
 		return err
 	}
 	// Wait for all output to be processed
-	<-done
 
+	<-done
+	r.log.Info("all output processed, cmd: ", cmd.String())
 	// Wait for the command to finish
 	err = r.waitCommand(cmd)
 	if err != nil {
@@ -81,17 +101,14 @@ func (r *R) Exec(name string, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (
 	return err
 }
 
-
-func (d *R)processError(line string)  {
+func (r *R) processError(line string) {
 	// Application Exception: 76.255.14.156:3005 ExceededTimeLimit
 	timeRe := regexp.MustCompile(`Application Exception: (\d+\.+\d+\.+\d+\.+\d+:\d+) ExceededTimeLimit`)
 	if timeRe.Match([]byte(line)) {
-		l  := timeRe.FindStringSubmatch(line)
-		d.log.Errorf("time limit error: %a", l[1])
+		l := timeRe.FindStringSubmatch(line)
+		r.log.Errorf("time limit error: %s", l[1])
 	}
-
 }
-
 
 func (r *R) startCommand(cmd *exec.Cmd) error {
 	lcCmd := cmd.String()

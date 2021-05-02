@@ -43,9 +43,18 @@ type Node struct {
 	Relays       []NodeShort
 
 	PassiveMode bool
+
+	LogMinSeverity    string `mapstructure:"log_min_severity"`
+	FilterMinSeverity string `mapstructure:"filter_min_severity"`
 }
 
 type Mapped struct {
+	TestnetPortBase   uint `mapstructure:"testnet_port_base"`
+	TestnetRTPortBase uint `mapstructure:"testnet_rt_port_base"`
+
+	MainnetPortBase   uint `mapstructure:"mainnet_port_base"`
+	MainnetRTPortBase uint `mapstructure:"mainnet_rt_port_base"`
+
 	SecretsPath          string `mapstructure:"secrets_path"`
 	Producers            []Node `mapstructure:"producers"`
 	Relays               []Node `mapstructure:"relays"`
@@ -56,14 +65,14 @@ type Mapped struct {
 
 type C struct {
 	Mapped
-
+	TestMode bool
 	logLevel string
 	log      *zap.SugaredLogger
 }
 
 func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 	c = &C{}
-
+	c.TestMode = testmode
 	if c.log, err = l.NewLogConfig(c, "config"); err != nil {
 		return c, err
 	}
@@ -83,6 +92,22 @@ func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 		return nil, err
 	}
 
+	if m.TestnetPortBase == 0 {
+		m.TestnetPortBase = 5000
+	}
+
+	if m.MainnetPortBase == 0 {
+		m.MainnetPortBase = 3000
+	}
+
+	if m.TestnetRTPortBase == 0 {
+		m.TestnetRTPortBase = 7000
+	}
+
+	if m.MainnetRTPortBase == 0 {
+		m.MainnetRTPortBase = 6000
+	}
+
 	m.ProducerHostsList = make(map[string][]NodeShort)
 	m.RelaysHostsList = make(map[string][]NodeShort)
 	m.PrometheusConfigPath = PrometheusConfigPath
@@ -94,6 +119,21 @@ func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 	_ = c.log.Sync()
 
 	return c, err
+}
+
+func (c *C) SetLogMinSeverity(logMinSeverity string, id int, isProducer bool) error {
+	if isProducer {
+		if id > len(c.Mapped.Producers) {
+			return fmt.Errorf("incorrect producer id")
+		}
+		c.Mapped.Producers[id].LogMinSeverity = logMinSeverity
+	} else {
+		if id > len(c.Mapped.Relays) {
+			return fmt.Errorf("incorrect relay id")
+		}
+		c.Mapped.Relays[id].LogMinSeverity = logMinSeverity
+	}
+	return nil
 }
 
 func (c *C) configViper(configFile string) error {
@@ -132,19 +172,36 @@ func (c *C) LogLevel() string {
 
 func (c *C) configNodes() {
 	for i := range c.Mapped.Producers {
+		rtPortBase := c.Mapped.MainnetRTPortBase + 700
+		portBase := c.Mapped.MainnetPortBase + 100
+		if c.Mapped.Producers[i].Network == "testnet" {
+			rtPortBase = c.Mapped.TestnetRTPortBase + 700
+			portBase = c.Mapped.TestnetPortBase + 100
+		}
+
+		if c.Mapped.Producers[i].LogMinSeverity == "" {
+			c.Mapped.Producers[i].LogMinSeverity = "Info"
+		}
+
+		if c.Mapped.Producers[i].FilterMinSeverity == "" {
+			c.Mapped.Producers[i].FilterMinSeverity = "Info"
+		}
+
 		c.Mapped.Producers[i].Name = fmt.Sprintf("producer%d", i)
 
 		if c.Mapped.Producers[i].Port == 0 {
-			c.Mapped.Producers[i].Port = uint(3100 + i)
+			c.Mapped.Producers[i].Port = portBase + uint(i)
 			c.log.Warnf("for node %s setting node port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].Port)
 		}
+
 		if c.Mapped.Producers[i].RtViewPort == 0 {
-			c.Mapped.Producers[i].RtViewPort = uint(6700 + i)
-			c.log.Warnf("for node %s setting node rtview port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].RtViewPort)
+			c.Mapped.Producers[i].RtViewPort = rtPortBase + uint(i)
+			c.log.Warnf("for node %d setting node rtview port to: %d", i, c.Mapped.Producers[i].RtViewPort)
 		}
+
 		if c.Mapped.Producers[i].PromeNExpPort == 0 {
 			c.Mapped.Producers[i].PromeNExpPort = uint(9100)
-			c.log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].PromeNExpPort)
+			c.log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].PromeNExpPort)
 		}
 
 		pool, ok := c.ProducerHostsList[c.Mapped.Producers[i].Pool]
@@ -156,14 +213,25 @@ func (c *C) configNodes() {
 		c.ProducerHostsList[c.Mapped.Producers[i].Pool] = pool
 	}
 	for i := range c.Mapped.Relays {
+		rtPortBase := c.Mapped.MainnetRTPortBase + 600
+		portBase := c.Mapped.MainnetPortBase
+		if c.Mapped.Relays[i].Network == "testnet" {
+			rtPortBase = c.Mapped.TestnetRTPortBase + 600
+			portBase = c.Mapped.TestnetPortBase
+		}
+
+		if c.Mapped.Producers[i].LogMinSeverity == "" {
+			c.Mapped.Producers[i].LogMinSeverity = "Info"
+		}
+
 		c.Mapped.Relays[i].Name = fmt.Sprintf("relay%d", i)
 
 		if c.Mapped.Relays[i].Port == 0 {
-			c.Mapped.Relays[i].Port = uint(3000 + i)
+			c.Mapped.Relays[i].Port = portBase + uint(i)
 			c.log.Warnf("for node %s setting node port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].Port)
 		}
 		if c.Mapped.Relays[i].RtViewPort == 0 {
-			c.Mapped.Relays[i].RtViewPort = uint(6600 + i)
+			c.Mapped.Relays[i].RtViewPort = rtPortBase + uint(i)
 			c.log.Warnf("for node %s setting node rtview port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].RtViewPort)
 		}
 

@@ -64,7 +64,7 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	var err error
-	if conf, err = config.New(cfgFile, true, "debug"); err != nil {
+	if conf, err = config.New(cfgFile, false, "debug"); err != nil {
 		for {
 			time.Sleep(time.Second * 10)
 			fmt.Println("config not found: ", cfgFile, err.Error())

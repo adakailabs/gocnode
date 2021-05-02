@@ -47,14 +47,15 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 			actualProducersdd = append(actualProducersdd, aP)
 		}
 		for _, p := range d.conf.Producers {
-			if d.node.Pool == p.Pool {
-				aP := Producer{}
-				aP.Addr = p.Host
-				aP.Port = p.Port
-				aP.Atype = "regular"
-				aP.Valency = 1
-				actualProducersdd = append(actualProducersdd, aP)
+			if d.node.Pool != p.Pool {
+				continue
 			}
+			aP := Producer{}
+			aP.Addr = p.Host
+			aP.Port = p.Port
+			aP.Atype = "regular"
+			aP.Valency = 1
+			actualProducersdd = append(actualProducersdd, aP)
 		}
 		top.Producers = append(top.Producers, actualProducersdd...)
 	} else {
@@ -83,13 +84,13 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	return nil
 }
 
-func (d *Downloader) DownloadTopologyJSON(net string) (Topology, error) {
+func (d *Downloader) DownloadTopologyJSON(aNet string) (Topology, error) {
 	filePathTmpTop, err := d.GetFilePath(TopologyJSON, true)
 	if err != nil {
 		return Topology{}, err
 	}
 
-	url := fmt.Sprintf("%s/%s-%s", URI, net, TopologyJSON)
+	url := fmt.Sprintf("%s/%s-%s", URI, aNet, TopologyJSON)
 
 	err = d.DownloadFile(filePathTmpTop, url)
 	if err != nil {
@@ -157,13 +158,10 @@ func (d *Downloader) TestNetRelays() (Topology, error) {
 				newProduces[i]
 		})
 
-	// topOthers.Producers = newProduces[0:d.node.Peers]
-
 	producersTmp := newProduces[0 : d.node.Peers*3]
 	for _, p := range producersTmp {
 		now := time.Now()
 		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
-		// err := conn.(*net.TCPConn).SetKeepAlive(true)
 		if err != nil {
 			d.log.Warnf("%s: %s", p.Addr, err.Error())
 		} else {
@@ -236,7 +234,6 @@ func (d *Downloader) MainNetRelays() (Topology, error) {
 	for _, p := range producersTmp {
 		now := time.Now()
 		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
-		// err := conn.(*net.TCPConn).SetKeepAlive(true)
 		if err != nil {
 			d.log.Errorf("%s: %s", p.Addr, err.Error())
 		} else {
