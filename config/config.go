@@ -220,8 +220,8 @@ func (c *C) configNodes() {
 			portBase = c.Mapped.TestnetPortBase
 		}
 
-		if c.Mapped.Producers[i].LogMinSeverity == "" {
-			c.Mapped.Producers[i].LogMinSeverity = "Info"
+		if c.Mapped.Relays[i].LogMinSeverity == "" {
+			c.Mapped.Relays[i].LogMinSeverity = "Info"
 		}
 
 		c.Mapped.Relays[i].Name = fmt.Sprintf("relay%d", i)

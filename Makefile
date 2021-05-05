@@ -24,7 +24,11 @@ endif
 
 .PHONY: gocnode
 gocnode:
-	go build -ldflags "-s -w -X main.Version='${GVERSION}'" -v gocnode.go
-
+	env GOOS="linux" GOARCH="amd64" go build -o gocnode_amd64 -ldflags "-s -w -X main.Version='${GVERSION}-amd64'" -v gocnode.go 
+	env GOOS="linux" GOARCH="arm64" go build -o gocnode_arm64 -ldflags "-s -w -X main.Version='${GVERSION}-arm64'" -v gocnode.go
+	#go build -o gocnode -ldflags "-s -w -X main.Version='${GVERSION}-amd64'" -v gocnode.go
 tversion:
 	@echo ${GVERSION}
+
+clean:
+	rm gocnode_*
