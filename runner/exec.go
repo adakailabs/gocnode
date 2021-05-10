@@ -36,12 +36,12 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 
 	// Create a scannerStdErr which scans r InputC a line-by-line fashion
 	scannerStdErr := bufio.NewScanner(ioBufferStdErr)
-	scannerStdErrBuf := make([]byte, 0, 64*1024)
-	scannerStdErr.Buffer(scannerStdErrBuf, 1024*1024)
+	scannerStdErrBuf := make([]byte, 0, 2*1024*1024)
+	scannerStdErr.Buffer(scannerStdErrBuf, 2*1024*1024)
 
 	scannerStdOut := bufio.NewScanner(ioBufferStdOut)
-	scannerStdOutBuf := make([]byte, 0, 64*1024)
-	scannerStdOut.Buffer(scannerStdOutBuf, 1024*1024)
+	scannerStdOutBuf := make([]byte, 0, 2*1024*1024)
+	scannerStdOut.Buffer(scannerStdOutBuf, 2*1024*1024)
 
 	// Use the scannerStdErr to scan the output line by line and log it
 	// It's running InputC a goroutine so that it doesn't block
@@ -49,9 +49,10 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 		// Read line by line and process it
 		for scannerStdErr.Scan() {
 			newLine := scannerStdErr.Text() + "\n"
-			fmt.Print(newLine)
 			if strings.Contains(newLine, "Error") {
 				r.processError(newLine)
+			} else {
+				r.processInfo(newLine)
 			}
 		}
 		if scannerStdErr.Err() != nil {
@@ -65,9 +66,10 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 		// Read line by line and process it
 		for scannerStdOut.Scan() {
 			newLine := scannerStdOut.Text() + "\n"
-			fmt.Print(newLine)
 			if strings.Contains(newLine, "Error") {
 				r.processError(newLine)
+			} else {
+				r.processInfo(newLine)
 			}
 		}
 		if scannerStdOut.Err() != nil {
@@ -101,12 +103,21 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 	return err
 }
 
+//cardano.node.BlockFetchClient
 func (r *R) processError(line string) {
 	// Application Exception: 76.255.14.156:3005 ExceededTimeLimit
+	fmt.Println(line)
 	timeRe := regexp.MustCompile(`Application Exception: (\d+\.+\d+\.+\d+\.+\d+:\d+) ExceededTimeLimit`)
 	if timeRe.Match([]byte(line)) {
 		l := timeRe.FindStringSubmatch(line)
 		r.log.Errorf("time limit error: %s", l[1])
+	}
+	//cardano_relay1.1.7ok8rxpj2x8d@raspberry00    | [34e768bb:cardano.node.DnsSubscription:Error:17976] [2021-05-10 18:57:35.21 UTC] Domain: "rocinante.mooo.com" Connection Attempt Exception, destination 186.32.161.134:5100 exception: Network.Socket.connect: <socket: 48>: does not exist (Connection refused)
+}
+func (r *R) processInfo(line string) {
+	if !strings.Contains(line, "cardano.node.BlockFetchClient") &&
+		!strings.Contains(line, "cardano.node.BlockFetchDecision") {
+		fmt.Println(line)
 	}
 }
 

@@ -153,13 +153,14 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 			case "cardano.node.metrics":
 				mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
 			case "cardano.node.resources":
-				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK", "EKGViewBK"}
+				mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
 			case "cardano.node.IpSubscription":
 				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
-			case "cardano.node.Handshake":
-				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+			// case "cardano.node.Handshake":
+			//	mapBackEnd[key] = []string{"TraceForwarderBK"}
 			default:
-				mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+				// mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+				d.log.Warn("no default trace for: ", key)
 			}
 		}
 
@@ -233,7 +234,7 @@ func (d *Downloader) GetConfigFile(aType string) (filePath string, err error) {
 		}
 
 		traces := []string{
-			"TraceBlockFetchClient",
+			//"TraceBlockFetchClient",
 			"TraceBlockFetchDecisions",
 			"TraceBlockFetchProtocol",
 			"TraceBlockFetchProtocolSerialised",
