@@ -3,6 +3,7 @@ package cardanocfg_test
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/k0kubun/pp"
 
@@ -118,6 +119,22 @@ func TestConfigTestnetTopology(t *testing.T) {
 	pp.Print(relays)
 }
 
+func TestConfigDownloadAndSetTopology(t *testing.T) {
+	a := assert.New(t)
+	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
+
+	c, err := config.New(cfgFile, true, "Debug")
+	a.Nil(err)
+
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
+	a.Nil(err2)
+
+	err3 := d.DownloadAndSetTopologyFile()
+	a.Nil(err3)
+
+	time.Sleep(time.Second * 30)
+}
+
 func TestConfigMainnetTopology(t *testing.T) {
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
@@ -132,4 +149,38 @@ func TestConfigMainnetTopology(t *testing.T) {
 	a.Nil(err3)
 
 	pp.Print(relays)
+}
+
+func TestConfigMainnetTopologyStream(t *testing.T) {
+	a := assert.New(t)
+	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
+
+	c, err := config.New(cfgFile, true, "Debug")
+	a.Nil(err)
+
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
+	a.Nil(err2)
+
+	go d.MainNetGetNodes()
+	nodeCount := 0
+	processNodes := true
+	for processNodes {
+		select {
+		case newRelay := <-d.RelaysChan():
+			{
+				t.Log("new rel")
+				nodeCount++
+				pp.Print(newRelay)
+			}
+		case <-d.RelaysDone():
+			{
+				t.Log("break")
+				processNodes = false
+			}
+		}
+	}
+
+	a.Equal(c.Relays[0].Peers, uint(nodeCount))
+
+	t.Log("end")
 }

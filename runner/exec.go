@@ -36,12 +36,12 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 
 	// Create a scannerStdErr which scans r InputC a line-by-line fashion
 	scannerStdErr := bufio.NewScanner(ioBufferStdErr)
-	scannerStdErrBuf := make([]byte, 0, 2*1024*1024)
-	scannerStdErr.Buffer(scannerStdErrBuf, 2*1024*1024)
+	scannerStdErrBuf := make([]byte, 0, 5*1024*1024)
+	scannerStdErr.Buffer(scannerStdErrBuf, 5*1024*1024)
 
 	scannerStdOut := bufio.NewScanner(ioBufferStdOut)
-	scannerStdOutBuf := make([]byte, 0, 2*1024*1024)
-	scannerStdOut.Buffer(scannerStdOutBuf, 2*1024*1024)
+	scannerStdOutBuf := make([]byte, 0, 5*1024*1024)
+	scannerStdOut.Buffer(scannerStdOutBuf, 5*1024*1024)
 
 	// Use the scannerStdErr to scan the output line by line and log it
 	// It's running InputC a goroutine so that it doesn't block
@@ -106,7 +106,11 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 //cardano.node.BlockFetchClient
 func (r *R) processError(line string) {
 	// Application Exception: 76.255.14.156:3005 ExceededTimeLimit
-	fmt.Println(line)
+	//fmt.Println(line)
+	if !strings.Contains(line, "Email cannot be sent") {
+		fmt.Println(line)
+	}
+
 	timeRe := regexp.MustCompile(`Application Exception: (\d+\.+\d+\.+\d+\.+\d+:\d+) ExceededTimeLimit`)
 	if timeRe.Match([]byte(line)) {
 		l := timeRe.FindStringSubmatch(line)

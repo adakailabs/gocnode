@@ -9,6 +9,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/prometheus/common/log"
+
+	"github.com/juju/errors"
+
 	"github.com/k0kubun/pp"
 )
 
@@ -27,19 +31,10 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 		if err != nil {
 			return err
 		}
-		var topOthers Topology
-		if d.node.Network == Mainnet {
-			topOthers, err = d.MainNetRelays()
-		} else {
-			topOthers, err = d.TestNetRelays()
-		}
-		if err != nil {
-			return err
-		}
-		top.Producers = append(top.Producers, topOthers.Producers...)
-		actualProducersdd := make([]Producer, 0, 4)
+
+		actualProducersdd := make([]Node, 0, 4)
 		for _, p := range d.node.ExtProducer {
-			aP := Producer{}
+			aP := Node{}
 			aP.Addr = p.Host
 			aP.Port = p.Port
 			aP.Atype = "regular"
@@ -50,7 +45,7 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 			if d.node.Pool != p.Pool {
 				continue
 			}
-			aP := Producer{}
+			aP := Node{}
 			aP.Addr = p.Host
 			aP.Port = p.Port
 			aP.Atype = "regular"
@@ -61,7 +56,7 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	} else {
 		d.log.Info("node is producer")
 		top = Topology{}
-		top.Producers = make([]Producer, len(d.node.Relays))
+		top.Producers = make([]Node, len(d.node.Relays))
 
 		for i, r := range d.node.Relays {
 			top.Producers[i].Port = r.Port
@@ -80,7 +75,35 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	if err != nil {
 		return err
 	}
+	log.Warn("first write")
 	pp.Print(top)
+
+	go func() {
+		if !d.node.IsProducer {
+			var topOthers Topology
+			if d.node.Network == Mainnet {
+				topOthers, err = d.MainNetRelays()
+			} else {
+				topOthers, err = d.TestNetRelays()
+			}
+			if err != nil {
+				d.log.Errorf(err.Error())
+			}
+			top.Producers = append(top.Producers, topOthers.Producers...)
+			newBytes, err := json.MarshalIndent(&top, "", "   ")
+			if err != nil {
+				d.log.Errorf(err.Error())
+			}
+			err = ioutil.WriteFile(filePath, newBytes, os.ModePerm)
+			if err != nil {
+				d.log.Errorf(err.Error())
+			}
+			log.Info("filePath:", filePath)
+			log.Warn("second write")
+			pp.Print(top)
+		}
+	}()
+
 	return nil
 }
 
@@ -131,8 +154,8 @@ func (d *Downloader) TestNetRelays() (Topology, error) {
 		return Topology{}, err
 	}
 
-	newProduces := make([]Producer, 0, len(topOthers.Producers))
-	finalProducers := make([]Producer, 0, 30)
+	newProduces := make([]Node, 0, len(topOthers.Producers))
+	finalProducers := make([]Node, 0, 30)
 
 	for _, p := range topOthers.Producers {
 		found := false
@@ -206,8 +229,8 @@ func (d *Downloader) MainNetRelays() (Topology, error) {
 		return Topology{}, err
 	}
 
-	newProduces := make([]Producer, 0, len(topOthers.Producers))
-	finalProducers := make([]Producer, 0, 30)
+	newProduces := make([]Node, 0, len(topOthers.Producers))
+	finalProducers := make([]Node, 0, 30)
 	for _, p := range topOthers.Producers {
 		found := false
 
@@ -253,4 +276,91 @@ func (d *Downloader) MainNetRelays() (Topology, error) {
 	}
 
 	return topOthers, nil
+}
+
+func (d *Downloader) MainnetDownloadNodes() ([]Node, error) {
+	rand.Seed(time.Now().UnixNano()) // FIXME
+	const URI = "https://a.adapools.org/topology?geo=us&limit=50"
+	const tmpPath = "/tmp/testnet.json"
+	if err := d.DownloadFile(tmpPath, URI); err != nil {
+		return nil, err
+	}
+
+	topOthers := Topology{}
+	fBytesOthers, err := ioutil.ReadFile(tmpPath)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(fBytesOthers, &topOthers)
+	if err != nil {
+		return nil, err
+	}
+
+	newNodes := make([]Node, 0, len(topOthers.Producers))
+
+	for _, p := range topOthers.Producers {
+		found := false
+
+		for _, i := range d.node.Relays {
+			if i.Host == p.Addr {
+				found = true
+			}
+		}
+
+		if found {
+			continue
+		}
+		newNodes = append(newNodes, p)
+	}
+
+	rand.Shuffle(len(newNodes),
+		func(i, j int) {
+			newNodes[i],
+				newNodes[j] = newNodes[j],
+				newNodes[i]
+		})
+
+	return newNodes, nil
+}
+
+func (d *Downloader) MainNetGetNodes() error {
+	newProduces, err := d.MainnetDownloadNodes()
+	if err != nil {
+		err = errors.Annotatef(err, "downloading nodes")
+		return err
+	}
+
+	producersTmp := newProduces[0 : d.node.Peers*3]
+	nCount := 0
+	for _, p := range producersTmp {
+		now := time.Now()
+		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
+		if err != nil {
+			d.log.Errorf("%s: %s", p.Addr, err.Error())
+			if conn != nil {
+				conn.Close()
+			}
+		} else {
+			duration := time.Since(now)
+			conn.Close()
+			if duration.Milliseconds() < 300 {
+				d.log.Infof("relay is good: %s -- %d ms", p.Addr, duration.Milliseconds())
+				d.relaysStream <- p
+				nCount++
+				if nCount >= int(d.node.Peers) {
+					d.log.Info("breaking: ", d.node.Peers)
+					break
+				}
+			} else {
+				d.log.Warnf("duration too long: %d", duration.Milliseconds())
+			}
+		}
+	}
+
+	if nCount == 0 {
+		panic("no relays found")
+	}
+	d.log.Info("sending done")
+	d.relaysStreamDone <- 0
+	return nil
 }

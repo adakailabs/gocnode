@@ -18,12 +18,12 @@ import (
 const APIURL = "https://api.clio.one/htopology/v1"
 
 type UpdaterGetNodes struct {
-	Resultcode string                `json:"resultcode"`
-	Datetime   string                `json:"datetime"`
-	ClientIP   string                `json:"clientIp"`
-	Iptype     uint                  `json:"iptype"`
-	Msg        string                `json:"msg"`
-	Producers  []cardanocfg.Producer `json:"producers"`
+	Resultcode string            `json:"resultcode"`
+	Datetime   string            `json:"datetime"`
+	ClientIP   string            `json:"clientIp"`
+	Iptype     uint              `json:"iptype"`
+	Msg        string            `json:"msg"`
+	Producers  []cardanocfg.Node `json:"producers"`
 }
 
 type TU struct {

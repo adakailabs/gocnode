@@ -134,16 +134,10 @@ func (r *R) StartCnode() error {
 	if err != nil {
 		return err
 	}
-
-	cnargs.NodeConfig, err = d.GetConfigFile(cardanocfg.ConfigJSON)
-	if err != nil {
-		return err
-	}
-
-	cnargs.NodeTopology, err = d.GetConfigFile(cardanocfg.TopologyJSON)
-	if err != nil {
-		return err
-	}
+	cnargs.NodeConfig,
+		cnargs.NodeTopology,
+		_,
+		_ = d.DownloadConfigFiles()
 
 	r.Cmd0Args = append(r.Cmd0Args,
 		cnargs.DatabasePathS,
@@ -169,16 +163,6 @@ func (r *R) StartCnode() error {
 			cnargs.OpCertS,
 			cnargs.OpCert,
 		)
-	}
-
-	_, err = d.GetConfigFile(cardanocfg.ShelleyGenesis)
-	if err != nil {
-		return err
-	}
-
-	_, err = d.GetConfigFile(cardanocfg.ByronGenesis)
-	if err != nil {
-		return err
 	}
 
 	r.log.Info(pp.Sprint(r.Cmd0Args))

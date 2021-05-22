@@ -13,6 +13,9 @@ import (
 
 const PrometheusConfigPath = "/home/lovelace/prometheus/"
 
+var RelaysHostsList map[string][]NodeShort
+var ProducerHostsList map[string][]NodeShort
+
 type NodeShort struct {
 	Port uint   `mapstructure:"port"`
 	Host string `mapstructure:"host"`
@@ -55,11 +58,11 @@ type Mapped struct {
 	MainnetPortBase   uint `mapstructure:"mainnet_port_base"`
 	MainnetRTPortBase uint `mapstructure:"mainnet_rt_port_base"`
 
-	SecretsPath          string `mapstructure:"secrets_path"`
-	Producers            []Node `mapstructure:"producers"`
-	Relays               []Node `mapstructure:"relays"`
-	RelaysHostsList      map[string][]NodeShort
-	ProducerHostsList    map[string][]NodeShort
+	SecretsPath     string `mapstructure:"secrets_path"`
+	Producers       []Node `mapstructure:"producers"`
+	Relays          []Node `mapstructure:"relays"`
+	RelaysHostsList map[string][]NodeShort
+
 	PrometheusConfigPath string
 }
 
@@ -108,8 +111,8 @@ func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 		m.MainnetRTPortBase = 6000
 	}
 
-	m.ProducerHostsList = make(map[string][]NodeShort)
-	m.RelaysHostsList = make(map[string][]NodeShort)
+	ProducerHostsList = make(map[string][]NodeShort)
+	RelaysHostsList = make(map[string][]NodeShort)
 	m.PrometheusConfigPath = PrometheusConfigPath
 
 	c.Mapped = m
@@ -204,13 +207,13 @@ func (c *C) configNodes() {
 			c.log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].PromeNExpPort)
 		}
 
-		pool, ok := c.ProducerHostsList[c.Mapped.Producers[i].Pool]
+		pool, ok := ProducerHostsList[c.Mapped.Producers[i].Pool]
 		if !ok {
 			pool = make([]NodeShort, 0, 5)
-			c.ProducerHostsList[c.Mapped.Producers[i].Pool] = pool
+			ProducerHostsList[c.Mapped.Producers[i].Pool] = pool
 		}
 		pool = append(pool, NodeShort{c.Mapped.Producers[i].Port, c.Mapped.Producers[i].Host})
-		c.ProducerHostsList[c.Mapped.Producers[i].Pool] = pool
+		ProducerHostsList[c.Mapped.Producers[i].Pool] = pool
 	}
 	for i := range c.Mapped.Relays {
 		rtPortBase := c.Mapped.MainnetRTPortBase + 600
@@ -240,19 +243,19 @@ func (c *C) configNodes() {
 			c.log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].PromeNExpPort)
 		}
 
-		pool, ok := c.RelaysHostsList[c.Mapped.Relays[i].Pool]
+		pool, ok := RelaysHostsList[c.Mapped.Relays[i].Pool]
 		if !ok {
 			pool = make([]NodeShort, 0, 5)
-			c.RelaysHostsList[c.Mapped.Relays[i].Pool] = pool
+			RelaysHostsList[c.Mapped.Relays[i].Pool] = pool
 		}
 
 		pool = append(pool, NodeShort{c.Mapped.Relays[i].Port, c.Mapped.Relays[i].Host})
-		c.RelaysHostsList[c.Mapped.Relays[i].Pool] = pool
+		RelaysHostsList[c.Mapped.Relays[i].Pool] = pool
 	}
 
 	for i := range c.Mapped.Producers {
 		var ok bool
-		c.Mapped.Producers[i].Relays, ok = c.RelaysHostsList[c.Mapped.Producers[i].Pool]
+		c.Mapped.Producers[i].Relays, ok = RelaysHostsList[c.Mapped.Producers[i].Pool]
 		if !ok {
 			c.log.Warn("producer %s does not have relays associated", c.Mapped.Producers[i].Name)
 		}
@@ -261,7 +264,7 @@ func (c *C) configNodes() {
 
 	for i := range c.Mapped.Relays {
 		var ok bool
-		c.Mapped.Relays[i].Producers, ok = c.ProducerHostsList[c.Mapped.Relays[i].Pool]
+		c.Mapped.Relays[i].Producers, ok = ProducerHostsList[c.Mapped.Relays[i].Pool]
 		if !ok {
 			c.log.Warnf("producer %s does not have producers associated", c.Mapped.Relays[i].Name)
 		}
