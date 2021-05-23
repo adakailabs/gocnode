@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	rtview2 "github.com/adakailabs/gocnode/rtview"
+	"github.com/adakailabs/gocnode/runner/rtview"
 
 	"github.com/stretchr/testify/assert"
 
@@ -23,7 +23,7 @@ func TestConfig(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	p, err2 := rtview2.New(c)
+	p, err2 := rtview.New(c)
 	a.Nil(err2)
 
 	_, err3 := p.CreateConfigFile()

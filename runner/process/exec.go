@@ -1,4 +1,4 @@
-package runner
+package process
 
 import (
 	"bufio"
@@ -9,14 +9,20 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/juju/errors"
 )
 
-func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err error) {
+type P struct {
+	Log *zap.SugaredLogger
+}
+
+func (r *P) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err error) {
 	var ioBufferStdOut io.ReadCloser
 	var ioBufferStdErr io.ReadCloser
 
-	r.log.Info("cmd0 args: ", cmdPath, cmdArgs)
+	r.Log.Info("Cmd0 args: ", cmdPath, cmdArgs)
 	cmd = exec.Command(cmdPath, cmdArgs...)
 
 	// Get a pipe to read from standard out
@@ -29,7 +35,7 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 		return err
 	}
 
-	r.log.Debugf("running cmd0: %s ", cmd.String())
+	r.Log.Debugf("running Cmd0: %s ", cmd.String())
 
 	// Make a new channel which will be used to ensure we get all output
 	done := make(chan struct{})
@@ -43,7 +49,7 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 	scannerStdOutBuf := make([]byte, 0, 5*1024*1024)
 	scannerStdOut.Buffer(scannerStdOutBuf, 5*1024*1024)
 
-	// Use the scannerStdErr to scan the output line by line and log it
+	// Use the scannerStdErr to scan the output line by line and Log it
 	// It's running InputC a goroutine so that it doesn't block
 	go func() {
 		// Read line by line and process it
@@ -56,9 +62,9 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 			}
 		}
 		if scannerStdErr.Err() != nil {
-			r.log.Error("STDERR: ", scannerStdErr.Err())
+			r.Log.Error("STDERR: ", scannerStdErr.Err())
 		}
-		r.log.Info("stderr processing finished")
+		r.Log.Info("stderr processing finished")
 		done <- struct{}{}
 	}()
 
@@ -73,9 +79,9 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 			}
 		}
 		if scannerStdOut.Err() != nil {
-			r.log.Error("STDOUT: ", scannerStdOut.Err())
+			r.Log.Error("STDOUT: ", scannerStdOut.Err())
 		}
-		r.log.Info("stdout processing finished")
+		r.Log.Info("stdout processing finished")
 		done <- struct{}{}
 	}()
 
@@ -90,13 +96,13 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 	// Wait for all output to be processed
 
 	<-done
-	r.log.Info("all output processed, cmd: ", cmd.String())
+	r.Log.Info("all output processed, cmd: ", cmd.String())
 	// Wait for the command to finish
 	err = r.waitCommand(cmd)
 	if err != nil {
 		err = errors.Annotatef(err, "%s:",
 			name)
-		r.log.Error(err.Error())
+		r.Log.Error(err.Error())
 		return err
 	}
 
@@ -104,7 +110,7 @@ func (r *R) Exec(name, cmdPath string, cmdArgs []string, cmd *exec.Cmd) (err err
 }
 
 //cardano.node.BlockFetchClient
-func (r *R) processError(line string) {
+func (r *P) processError(line string) {
 	// Application Exception: 76.255.14.156:3005 ExceededTimeLimit
 	//fmt.Println(line)
 	if !strings.Contains(line, "Email cannot be sent") {
@@ -114,24 +120,24 @@ func (r *R) processError(line string) {
 	timeRe := regexp.MustCompile(`Application Exception: (\d+\.+\d+\.+\d+\.+\d+:\d+) ExceededTimeLimit`)
 	if timeRe.Match([]byte(line)) {
 		l := timeRe.FindStringSubmatch(line)
-		r.log.Errorf("time limit error: %s", l[1])
+		r.Log.Errorf("time limit error: %s", l[1])
 	}
 	//cardano_relay1.1.7ok8rxpj2x8d@raspberry00    | [34e768bb:cardano.node.DnsSubscription:Error:17976] [2021-05-10 18:57:35.21 UTC] Domain: "rocinante.mooo.com" Connection Attempt Exception, destination 186.32.161.134:5100 exception: Network.Socket.connect: <socket: 48>: does not exist (Connection refused)
 }
-func (r *R) processInfo(line string) {
+func (r *P) processInfo(line string) {
 	if !strings.Contains(line, "cardano.node.BlockFetchClient") &&
 		!strings.Contains(line, "cardano.node.BlockFetchDecision") {
 		fmt.Println(line)
 	}
 }
 
-func (r *R) startCommand(cmd *exec.Cmd) error {
+func (r *P) startCommand(cmd *exec.Cmd) error {
 	lcCmd := cmd.String()
 	err := cmd.Start()
 	if err != nil {
 		err = errors.Annotatef(err, "while attempting to start command %s",
 			lcCmd)
-		r.log.Error(err.Error())
+		r.Log.Error(err.Error())
 		time.Sleep(time.Millisecond * 500)
 		return err
 	}
@@ -139,7 +145,7 @@ func (r *R) startCommand(cmd *exec.Cmd) error {
 	return nil
 }
 
-func (r *R) waitCommand(cmd *exec.Cmd) error {
+func (r *P) waitCommand(cmd *exec.Cmd) error {
 	lcCmd := cmd.String()
 	err := cmd.Wait()
 	if err != nil {

@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/adakailabs/gocnode/prometheuscfg"
+	prometheuscfg2 "github.com/adakailabs/gocnode/runner/prometheuscfg"
 
 	"github.com/stretchr/testify/assert"
 
@@ -23,7 +23,7 @@ func TestConfig(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	p, err2 := prometheuscfg.New(c)
+	p, err2 := prometheuscfg2.New(c)
 	a.Nil(err2)
 
 	p.GetYaml()

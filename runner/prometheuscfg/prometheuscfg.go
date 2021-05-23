@@ -20,12 +20,12 @@ type PromJob struct {
 	ScrapeTimeout  time.Duration `yaml:"scrape_timeout"`
 }
 
-func NewPromJob(name string, targetHost string, interval, timeout time.Duration) PromJob {
+func NewPromJob(name, targetHost string, interval, timeout time.Duration) PromJob {
 	pr := PromJob{}
 	pr.JobName = name
 	pr.ScrapeInterval = interval
 	pr.ScrapeTimeout = timeout
-	pr.StaticConfigs = make([]SConfigs, 1, 1)
+	pr.StaticConfigs = make([]SConfigs, 1)
 	pr.StaticConfigs[0] = SConfigs{[]string{targetHost}}
 	return pr
 }
@@ -78,26 +78,20 @@ func (c *Cfg) GetYaml() []byte {
 	pcfg.ScrapeConfigs = make([]PromJob, 1)
 	pcfg.ScrapeConfigs[0] = p1
 
-	for _, r := range c.conf.Relays {
-		exporterName := fmt.Sprintf("%s-exporter", r.Name)
-		cardanoName := fmt.Sprintf("%s-cardano", r.Name)
-		pExpHost := fmt.Sprintf("%s:%d", r.Name, r.PromeNExpPort)
-		pCardHost := fmt.Sprintf("%s:%s", r.Name, "12798")
-		p1 := NewPromJob(exporterName, pExpHost, time.Second*5, time.Second*5)
-		p2 := NewPromJob(cardanoName, pCardHost, time.Second*5, time.Second*5)
-		pcfg.ScrapeConfigs = append(pcfg.ScrapeConfigs, p1, p2)
+	f := func(nodes []config.Node, pcfg *PromConfig) {
+		for i := range nodes {
+			exporterName := fmt.Sprintf("%s-exporter", nodes[i].Name)
+			cardanoName := fmt.Sprintf("%s-cardano", nodes[i].Name)
+			pExpHost := fmt.Sprintf("%s:%d", nodes[i].Name, nodes[i].PromeNExpPort)
+			pCardHost := fmt.Sprintf("%s:%s", nodes[i].Name, "12798")
+			p1 := NewPromJob(exporterName, pExpHost, time.Second*5, time.Second*5)
+			p2 := NewPromJob(cardanoName, pCardHost, time.Second*5, time.Second*5)
+			pcfg.ScrapeConfigs = append(pcfg.ScrapeConfigs, p1, p2)
+		}
 	}
 
-	for _, r := range c.conf.Producers {
-		exporterName := fmt.Sprintf("%s-exporter", r.Name)
-		cardanoName := fmt.Sprintf("%s-cardano", r.Name)
-		pExpHost := fmt.Sprintf("%s:%d", r.Name, r.PromeNExpPort)
-		pCardHost := fmt.Sprintf("%s:%s", r.Name, "12798")
-		p1 := NewPromJob(exporterName, pExpHost, time.Second*5, time.Second*5)
-		p2 := NewPromJob(cardanoName, pCardHost, time.Second*5, time.Second*5)
-		pcfg.ScrapeConfigs = append(pcfg.ScrapeConfigs, p1, p2)
-	}
-
+	f(c.conf.Relays, &pcfg)
+	f(c.conf.Producers, &pcfg)
 
 	pcfg.Global = g
 
@@ -114,7 +108,7 @@ func (c *Cfg) GetYaml() []byte {
 func (c *Cfg) CreateConfigFile() (file string, err error) {
 	cfgBytes := c.GetYaml()
 	file = "/prometheus/prometheus.yaml"
-	if err := ioutil.WriteFile(file, cfgBytes, os.ModePerm); err != nil {
+	if er := ioutil.WriteFile(file, cfgBytes, os.ModePerm); er != nil {
 		return file, err
 	}
 	return file, err

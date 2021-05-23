@@ -16,7 +16,9 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/adakailabs/gocnode/runner"
+	"github.com/adakailabs/gocnode/runner/node"
+	"github.com/adakailabs/gocnode/runner/prometheuscfg"
+	"github.com/adakailabs/gocnode/runner/rtview"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +38,7 @@ var startNodeCmd = &cobra.Command{
 			conf.SetLogMinSeverity(logMinSeverity, id, isProducer)
 		}
 
-		r, err := runner.NewCardanoNodeRunner(conf, id, isProducer, passive)
+		r, err := node.NewCardanoNodeRunner(conf, id, isProducer, passive)
 		if err != nil {
 			return err
 		}
@@ -50,7 +52,7 @@ var startPrometheus = &cobra.Command{
 	Short: "Start prometheus for monitoring a cardano pool",
 	Long:  `Start prometheus for monitoring a cardano pool, based on the passed pool configuration`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := runner.NewPrometheusRunner(conf, id, isProducer)
+		r, err := prometheuscfg.NewPrometheusRunner(conf, id, isProducer)
 		if err != nil {
 			return err
 		}
@@ -64,7 +66,7 @@ var startRTView = &cobra.Command{
 	Short: "Start rtview for monitoring a cardano pool",
 	Long:  `Start rtview for monitoring a cardano pool, based on the passed pool configuration`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		r, err := runner.NewRtViewRunner(conf)
+		r, err := rtview.NewRtViewRunner(conf)
 		if err != nil {
 			return err
 		}
