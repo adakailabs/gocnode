@@ -126,7 +126,7 @@ func (d *Downloader) GetConfigFile(aType string) {
 	var filePath string
 	var recent bool
 	if filePath, err = d.GetFilePath(aType, false); err != nil {
-		err = errors.Annotatef(err, "geting path for: %s", filePath)
+		err = errors.Annotatef(err, "getting path for: %s", filePath)
 		panic(err.Error())
 	}
 
@@ -147,7 +147,7 @@ func (d *Downloader) GetConfigFile(aType string) {
 
 		filePath, err = d.GetConfigJSON(aType)
 		if err != nil {
-			err = errors.Annotatef(err, "geting path for: %s", filePath)
+			err = errors.Annotatef(err, "getting path for: %s", filePath)
 			panic(err.Error())
 		}
 		d.ConfigJSON = filePath
@@ -155,14 +155,13 @@ func (d *Downloader) GetConfigFile(aType string) {
 
 	case ByronGenesis:
 		if !recent {
-
 			if url, err = d.GetURL(aType); err != nil {
-				err = errors.Annotatef(err, "geting path for: %s", filePath)
+				err = errors.Annotatef(err, "getting path for: %s", filePath)
 				panic(err.Error())
 			}
 			err = d.DownloadFile(filePath, url)
 			if err != nil {
-				err = errors.Annotatef(err, "geting path for: %s", filePath)
+				err = errors.Annotatef(err, "getting path for: %s", filePath)
 				panic(err.Error())
 			}
 		}
@@ -171,13 +170,12 @@ func (d *Downloader) GetConfigFile(aType string) {
 	case ShelleyGenesis:
 		if !recent {
 			if url, err = d.GetURL(aType); err != nil {
-				err = errors.Annotatef(err, "geting path for: %s", filePath)
+				err = errors.Annotatef(err, "getting path for: %s", filePath)
 				panic(err.Error())
-
 			}
 			err = d.DownloadFile(filePath, url)
 			if err != nil {
-				err = errors.Annotatef(err, "geting path for: %s", filePath)
+				err = errors.Annotatef(err, "getting path for: %s", filePath)
 				panic(err.Error())
 			}
 		}

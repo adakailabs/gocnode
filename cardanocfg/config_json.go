@@ -52,6 +52,12 @@ func (d *Downloader) ConfigureBlocks(JSON []byte) ([]byte, error) {
 	if err != nil {
 		return JSON, errors.Annotatef(err, "while configuring blocks")
 	}
+
+	JSON, err = sjson.SetBytes(JSON, "defaultBackends", []string{"TraceForwarderBK", "KatipBK"})
+	if err != nil {
+		return JSON, errors.Annotatef(err, "while configuring blocks")
+	}
+
 	return JSON, err
 }
 

@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 
+	"github.com/prometheus/common/log"
+
 	l "github.com/adakailabs/gocnode/logger"
 	"github.com/juju/errors"
 	"github.com/mitchellh/go-homedir"
@@ -10,6 +12,8 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
+
+const testnet = "testnet"
 
 const PrometheusConfigPath = "/home/lovelace/prometheus/"
 
@@ -37,6 +41,7 @@ type Node struct {
 	Producers     []NodeShort `mapstructure:"producer"`
 	IsProducer    bool        `mapstructure:"is_producer"`
 	RootDir       string      `mapstructure:"root_dir"`
+	BackupDir     string      `mapstructure:"backup_dir"`
 
 	ExtRelays   []NodeShort `mapstructure:"ext_relays"`
 	ExtProducer []NodeShort `mapstructure:"ext_producer"`
@@ -177,7 +182,7 @@ func (c *C) configNodes() {
 	for i := range c.Mapped.Producers {
 		rtPortBase := c.Mapped.MainnetRTPortBase + 700
 		portBase := c.Mapped.MainnetPortBase + 100
-		if c.Mapped.Producers[i].Network == "testnet" {
+		if c.Mapped.Producers[i].Network == testnet {
 			rtPortBase = c.Mapped.TestnetRTPortBase + 700
 			portBase = c.Mapped.TestnetPortBase + 100
 		}
@@ -218,7 +223,7 @@ func (c *C) configNodes() {
 	for i := range c.Mapped.Relays {
 		rtPortBase := c.Mapped.MainnetRTPortBase + 600
 		portBase := c.Mapped.MainnetPortBase
-		if c.Mapped.Relays[i].Network == "testnet" {
+		if c.Mapped.Relays[i].Network == testnet {
 			rtPortBase = c.Mapped.TestnetRTPortBase + 600
 			portBase = c.Mapped.TestnetPortBase
 		}
@@ -279,6 +284,13 @@ func (c *C) configNodes() {
 				c.Mapped.Producers[i].Pool,
 				c.Mapped.Producers[i].Name)
 		}
+		if c.Mapped.Producers[i].BackupDir == "" {
+			c.Mapped.Producers[i].BackupDir = fmt.Sprintf("%s/%s/%s/%s", rootDir,
+				c.Mapped.Producers[i].Network,
+				c.Mapped.Producers[i].Pool,
+				"backup")
+			log.Info("backup dir configured to: ", c.Mapped.Producers[i].BackupDir)
+		}
 		if c.Mapped.Producers[i].TmpDir == "" {
 			c.Mapped.Producers[i].TmpDir = fmt.Sprintf("%s/%s/%s/%s", "/tmp/cardano-node",
 				c.Mapped.Producers[i].Network,
@@ -294,6 +306,13 @@ func (c *C) configNodes() {
 				c.Mapped.Relays[i].Network,
 				c.Mapped.Relays[i].Pool,
 				c.Mapped.Relays[i].Name)
+		}
+		if c.Mapped.Relays[i].BackupDir == "" {
+			c.Mapped.Relays[i].BackupDir = fmt.Sprintf("%s/%s/%s/%s", rootDir,
+				c.Mapped.Relays[i].Network,
+				c.Mapped.Relays[i].Pool,
+				"backup")
+			log.Info("backup dir configured to: ", c.Mapped.Relays[i].BackupDir)
 		}
 		if c.Mapped.Relays[i].TmpDir == "" {
 			c.Mapped.Relays[i].TmpDir = fmt.Sprintf("%s/%s/%s/%s", "/tmp/cardano-node",

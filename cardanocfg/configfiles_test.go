@@ -21,32 +21,20 @@ func TestMain(m *testing.M) {
 
 func TestConfig(t *testing.T) {
 	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
+	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
 
 	c, err := config.New(cfgFile, true, "Debug")
+	if err != nil {
+		t.Log(err.Error())
+	}
 	a.Nil(err)
+	a.NotNil(c)
+	a.NotNil(&c.Relays[0])
 
-	d, err2 := cardanocfg.New(&c.Relays[2], c)
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
 	a.Nil(err2)
 
-	files := []string{
-		cardanocfg.ConfigJSON,
-		cardanocfg.TopologyJSON,
-		cardanocfg.ByronGenesis,
-		cardanocfg.ShelleyGenesis,
-	}
-
-	for _, file := range files {
-		configF, er := d.GetConfigFile(file)
-		a.Nil(er)
-
-		if _, err := os.Stat(configF); err != nil {
-			t.Errorf(err.Error())
-			t.FailNow()
-		}
-
-		t.Logf("file: %s", configF)
-	}
+	d.DownloadConfigFiles()
 }
 
 func TestConfigTopology(t *testing.T) {
@@ -64,15 +52,7 @@ func TestConfigTopology(t *testing.T) {
 	}
 
 	for _, file := range files {
-		configF, er := d.GetConfigFile(file)
-		a.Nil(er)
-
-		if _, err := os.Stat(configF); err != nil {
-			t.Errorf(er.Error())
-			t.FailNow()
-		}
-
-		t.Logf("file: %s", configF)
+		d.GetConfigFile(file)
 	}
 }
 
@@ -91,15 +71,7 @@ func TestConfigTopologyProducer(t *testing.T) {
 	}
 
 	for _, file := range files {
-		configF, er := d.GetConfigFile(file)
-		a.Nil(er)
-
-		if _, err := os.Stat(configF); err != nil {
-			t.Errorf(er.Error())
-			t.FailNow()
-		}
-
-		t.Logf("file: %s", configF)
+		d.GetConfigFile(file)
 	}
 }
 

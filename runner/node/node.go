@@ -5,7 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/errors"
+
 	l "github.com/adakailabs/gocnode/logger"
+	copyd "github.com/otiai10/copy"
 
 	"github.com/adakailabs/gocnode/cardanocfg"
 
@@ -68,6 +71,9 @@ func (r *R) Init(conf *config.C, nodeID int, isProducer, passive bool) (err erro
 		}
 	} else {
 		r.Log.Infof("node is a relay, with ID: %d", nodeID)
+		if nodeID > len(conf.Relays) {
+			return fmt.Errorf("configured number of relays is less than this node's ID, there is a configuration problem")
+		}
 		r.NodeC = &conf.Relays[nodeID]
 	}
 
@@ -115,12 +121,27 @@ func (r *R) setCheckDBPath() error {
 
 	if _, err := os.Stat(r.cnargs.DatabasePath); err != nil {
 		if os.IsNotExist(err) {
-			if er := os.MkdirAll(r.cnargs.DatabasePath, os.ModePerm); er != nil {
-				return er
+			if _, err2 := os.Stat(r.NodeC.BackupDir); err2 == nil {
+				r.Log.Warnf("database not found but found a backup, will copy from backup an initial version to speed up the process")
+				if er := copyd.Copy(r.NodeC.BackupDir, r.NodeC.RootDir); er != nil {
+					er = errors.Annotate(er, "could not copy backup")
+					r.Log.Error(er.Error())
+				} else {
+					r.Log.Info("copy from backup complete")
+				}
+			} else {
+				r.Log.Warnf("could not find backup dir: %s", r.NodeC.BackupDir)
+				r.Log.Warn("cardano-node will start clean from scratch ")
+				if er := os.MkdirAll(r.cnargs.DatabasePath, os.ModePerm); er != nil {
+					return er
+				}
 			}
 		} else {
+			r.Log.Error("database path not found with error: ", err.Error())
 			return err
 		}
+	} else {
+		r.Log.Info("database path found")
 	}
 
 	r.cnargs.SocketPath = fmt.Sprintf("%s/node.socket", r.cnargs.DatabasePath)
