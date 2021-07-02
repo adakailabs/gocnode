@@ -138,9 +138,11 @@ func (d *Downloader) GetConfigFile(aType string) {
 		d.log.Info("Duration: ", eDuration)
 		if eDuration < 24*5 {
 			d.log.Info("file is recent: ", filePath)
-			recent = true
+			// recent = true
 		}
 	}
+
+	recent = false //FIXME: overriding recent
 
 	switch aType {
 	case ConfigJSON:

@@ -129,6 +129,13 @@ func (r *R) setCheckDBPath() error {
 				} else {
 					r.Log.Info("copy from backup complete")
 				}
+				if er := copyd.Copy(fmt.Sprintf("%s/db/protocolMagicId", r.NodeC.BackupDir),
+					fmt.Sprintf("%s/db/protocolMagicId", r.NodeC.RootDir)); er != nil {
+					er = errors.Annotate(er, "could not copy protocolMagicId")
+					r.Log.Error(er.Error())
+				} else {
+					r.Log.Info("copied protocolMagicId")
+				}
 			} else {
 				r.Log.Warnf("could not find backup dir: %s", r.NodeC.BackupDir)
 				r.Log.Warn("cardano-node will start clean from scratch ")
@@ -142,6 +149,13 @@ func (r *R) setCheckDBPath() error {
 		}
 	} else {
 		r.Log.Info("database path found")
+	}
+
+	if _, err := os.Stat(fmt.Sprintf("%s/node.socket", r.cnargs.DatabasePath)); err == nil {
+		er := os.Remove(fmt.Sprintf("%s/node.socket", r.cnargs.DatabasePath))
+		if er != nil {
+			r.Log.Errorf(er.Error())
+		}
 	}
 
 	r.cnargs.SocketPath = fmt.Sprintf("%s/node.socket", r.cnargs.DatabasePath)

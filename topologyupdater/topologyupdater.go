@@ -89,7 +89,7 @@ func (t *TU) GetCardanoBlock() (string, error) {
 			return r.Value[1].(string), err
 		}
 	}
-	return "", fmt.Errorf("value not found")
+	return "", fmt.Errorf("while quering prometheus for value %s: value not found", "cardano_node_metrics_blockNum_int")
 }
 
 func (t *TU) Ping() (int, error) {
