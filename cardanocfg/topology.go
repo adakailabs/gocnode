@@ -78,31 +78,29 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	log.Warn("first write")
 	pp.Print(top)
 
-	go func() {
-		if !d.node.IsProducer {
-			var topOthers Topology
-			if d.node.Network == Mainnet {
-				topOthers, err = d.MainNetRelays()
-			} else {
-				topOthers, err = d.TestNetRelays()
-			}
-			if err != nil {
-				d.log.Errorf(err.Error())
-			}
-			top.Producers = append(top.Producers, topOthers.Producers...)
-			newBytes, err := json.MarshalIndent(&top, "", "   ")
-			if err != nil {
-				d.log.Errorf(err.Error())
-			}
-			err = ioutil.WriteFile(filePath, newBytes, os.ModePerm)
-			if err != nil {
-				d.log.Errorf(err.Error())
-			}
-			log.Info("filePath:", filePath)
-			log.Warn("second write")
-			pp.Print(top)
+	if !d.node.IsProducer {
+		var topOthers Topology
+		if d.node.Network == Mainnet {
+			topOthers, err = d.MainNetRelays()
+		} else {
+			topOthers, err = d.TestNetRelays()
 		}
-	}()
+		if err != nil {
+			d.log.Errorf(err.Error())
+		}
+		top.Producers = append(top.Producers, topOthers.Producers...)
+		newBytes, err := json.MarshalIndent(&top, "", "   ")
+		if err != nil {
+			d.log.Errorf(err.Error())
+		}
+		err = ioutil.WriteFile(filePath, newBytes, os.ModePerm)
+		if err != nil {
+			d.log.Errorf(err.Error())
+		}
+		log.Info("filePath:", filePath)
+		log.Warn("second write")
+		pp.Print(top)
+	}
 
 	return nil
 }
