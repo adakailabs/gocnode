@@ -108,10 +108,7 @@ func (r *R) newArgs() (cnodeArgs, error) {
 	if err != nil {
 		return r.cnargs, err
 	}
-	r.cnargs.NodeConfig,
-		r.cnargs.NodeTopology,
-		_,
-		_ = d.DownloadConfigFiles()
+	r.cnargs.NodeConfig, r.cnargs.NodeTopology, _, _, _ = d.DownloadConfigFiles()
 
 	return r.cnargs, nil
 }
@@ -274,6 +271,16 @@ func NewCardanoNodeRunner(conf *config.C, nodeID int, isProducer, passive bool) 
 
 	r.Cmd1Path = "node_exporter"
 	r.Cmd1Args = make([]string, 0, 10)
+
+	return r, err
+}
+
+func NewOptimzer(conf *config.C, nodeID int, isProducer, passive bool) (r *R, err error) {
+	r = &R{}
+	err = r.Init(conf, nodeID, isProducer, passive)
+	if err != nil {
+		return r, err
+	}
 
 	return r, err
 }

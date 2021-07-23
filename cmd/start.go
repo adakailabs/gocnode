@@ -46,6 +46,24 @@ var startNodeCmd = &cobra.Command{
 	},
 }
 
+var startOptimizer = &cobra.Command{
+	Use:   "start-optim",
+	Short: "Start a node latancy optimizer process",
+	Long:  `Start a node latancy optimizer process.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		if logMinSeverity != "" {
+			conf.SetLogMinSeverity(logMinSeverity, id, isProducer)
+		}
+
+		r, err := node.NewOptimzer(conf, id, isProducer, passive)
+		if err != nil {
+			return err
+		}
+		return r.StartCnode()
+	},
+}
+
 // startNodeCmd represents the start command
 var startPrometheus = &cobra.Command{
 	Use:   "start-prometheus",

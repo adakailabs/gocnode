@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adakailabs/gocnode/fastping"
+
 	"github.com/k0kubun/pp"
 
 	"github.com/adakailabs/gocnode/cardanocfg"
@@ -14,6 +16,8 @@ import (
 	"github.com/adakailabs/gocnode/config"
 )
 
+const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
+
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 	os.Exit(m.Run())
@@ -21,7 +25,6 @@ func TestMain(m *testing.M) {
 
 func TestConfig(t *testing.T) {
 	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
 
 	c, err := config.New(cfgFile, true, "Debug")
 	if err != nil {
@@ -39,7 +42,7 @@ func TestConfig(t *testing.T) {
 
 func TestConfigTopology(t *testing.T) {
 	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/stack/secrets/gocnode.yaml"
+	//const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/stack/secrets/gocnode.yaml"
 
 	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
@@ -50,6 +53,7 @@ func TestConfigTopology(t *testing.T) {
 	files := []string{
 		cardanocfg.TopologyJSON,
 	}
+	d.Wg.Add(len(files))
 
 	for _, file := range files {
 		d.GetConfigFile(file)
@@ -77,18 +81,64 @@ func TestConfigTopologyProducer(t *testing.T) {
 
 func TestConfigTestnetTopology(t *testing.T) {
 	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
 	c, err := config.New(cfgFile, true, "Debug")
-	a.Nil(err)
+	if !a.Nil(err) {
+		t.FailNow()
+	}
 
 	d, err2 := cardanocfg.New(&c.Relays[0], c)
-	a.Nil(err2)
+	if !a.Nil(err2) {
+		t.FailNow()
+	}
 
 	relays, err3 := d.TestNetRelays()
-	a.Nil(err3)
+	if !a.Nil(err3) {
+		t.FailNow()
+	}
 
 	pp.Print(relays)
+}
+
+func TestConfigTestnetOptimzer(t *testing.T) {
+	a := assert.New(t)
+
+	c, err := config.New(cfgFile, true, "Debug")
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
+	if !a.Nil(err2) {
+		t.FailNow()
+	}
+
+	_, relays, err3 := d.GetTestNetRelays()
+	if !a.Nil(err3) {
+		t.FailNow()
+	}
+
+	relays, err4 := d.TestLatencyWithPing(relays)
+	if !a.Nil(err4) {
+		t.FailNow()
+	}
+
+	pp.Print(relays)
+
+	for _, p := range relays {
+		pp.Printf("relay: %s --> %s \n", p.Addr, p.Latency.Milliseconds())
+	}
+}
+
+func TestPinger(t *testing.T) {
+	a := assert.New(t)
+	pTime, err := fastping.TestAddress("www.google.com")
+
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	t.Log("time: ", pTime)
 }
 
 func TestConfigDownloadAndSetTopology(t *testing.T) {

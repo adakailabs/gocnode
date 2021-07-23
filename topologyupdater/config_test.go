@@ -47,7 +47,7 @@ func TestPing(t *testing.T) {
 	d, err2 := cardanocfg.New(&c.Relays[nodeID], c)
 	a.Nil(err2)
 
-	_, _, _, _ = d.DownloadConfigFiles()
+	_, _, _, _, _ = d.DownloadConfigFiles()
 	a.Nil(err)
 
 	tu, err := topologyupdater.New(c, nodeID)

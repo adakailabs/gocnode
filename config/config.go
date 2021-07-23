@@ -73,9 +73,10 @@ type Mapped struct {
 
 type C struct {
 	Mapped
-	TestMode bool
-	logLevel string
-	log      *zap.SugaredLogger
+	TestMode   bool
+	logLevel   string
+	log        *zap.SugaredLogger
+	latencyMap map[string]Node
 }
 
 func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
@@ -125,6 +126,8 @@ func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 	c.configNodes()
 
 	_ = c.log.Sync()
+
+	c.latencyMap = make(map[string]Node)
 
 	return c, err
 }

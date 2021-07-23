@@ -24,6 +24,7 @@ const URI = "https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/l
 const ConfigJSON = "config.json"
 const ByronGenesis = "byron-genesis.json"
 const ShelleyGenesis = "shelley-genesis.json"
+const AlonzoGenesis = "alonzo-genesis.json"
 const TopologyJSON = "topology.json"
 
 type Downloader struct {
@@ -32,29 +33,57 @@ type Downloader struct {
 	node             *config.Node
 	relaysStream     chan Node
 	relaysStreamDone chan interface{}
-	wg               *sync.WaitGroup
+	Wg               *sync.WaitGroup
 	ConfigJSON       string
 	TopologyJSON     string
 	ShelleyGenesis   string
+	AlonzoGenesis    string
 	ByronGenesis     string
+
+	relaysMap map[string]string
 }
 
 type Topology struct {
 	Producers []Node `json:"Producers"`
 }
 
+type NodeList []Node
+
+// Len is part of sort.Interface.
+func (ms NodeList) Len() int {
+	return len(ms)
+}
+
+// Swap is part of sort.Interface.
+func (ms NodeList) Swap(i, j int) {
+	ms[i], ms[j] = ms[j], ms[i]
+}
+
+// Less is part of sort.Interface. It is implemented by looping along the
+// less functions until it finds a comparison that discriminates between
+// the two items (one is less than the other). Note that it can call the
+// less functions twice per call. We could change the functions to return
+// -1, 0, 1 and reduce the number of calls for greater efficiency: an
+// exercise for the reader.
+func (ms NodeList) Less(i, j int) bool {
+	return ms[i].Latency < ms[j].Latency
+}
+
 type Node struct {
-	Atype   string `json:"type"`
-	Addr    string `json:"addr"`
-	Port    uint   `json:"port"`
-	Valency uint   `json:"valency"`
-	Debug   string `json:"debug"`
+	Atype           string `json:"type"`
+	Addr            string `json:"addr"`
+	Port            uint   `json:"port"`
+	Valency         uint   `json:"valency"`
+	Debug           string `json:"debug"`
+	Latency         time.Duration
+	LatencyAcc      time.Duration
+	LatencyAccCount uint64
 }
 
 func New(n *config.Node, c *config.C) (*Downloader, error) {
 	var err error
 	d := &Downloader{}
-	d.wg = &sync.WaitGroup{}
+	d.Wg = &sync.WaitGroup{}
 	d.conf = c
 	d.node = n
 	d.relaysStream = make(chan Node)
@@ -103,21 +132,19 @@ func (d *Downloader) GetURL(aType string) (url string, err error) {
 	return url, err
 }
 
-func (d *Downloader) DownloadConfigFiles() (configJSON,
-	topology,
-	shelley,
-	byron string) {
-	d.wg.Add(4)
+func (d *Downloader) DownloadConfigFiles() (configJSON, topology, shelley, byron, alonzo string) {
+	d.Wg.Add(5)
 	go d.GetConfigFile(ConfigJSON)
 	go d.GetConfigFile(TopologyJSON)
 	go d.GetConfigFile(ShelleyGenesis)
+	go d.GetConfigFile(AlonzoGenesis)
 	go d.GetConfigFile(ByronGenesis)
-	d.wg.Wait()
+	d.Wg.Wait()
 
 	d.log.Info("config file: ", d.ConfigJSON)
 	d.log.Info("topology file: ", d.TopologyJSON)
 
-	return d.ConfigJSON, d.TopologyJSON, d.ShelleyGenesis, d.ByronGenesis
+	return d.ConfigJSON, d.TopologyJSON, d.ShelleyGenesis, d.ByronGenesis, d.AlonzoGenesis
 }
 
 func (d *Downloader) GetConfigFile(aType string) {
@@ -153,7 +180,7 @@ func (d *Downloader) GetConfigFile(aType string) {
 			panic(err.Error())
 		}
 		d.ConfigJSON = filePath
-		d.wg.Done()
+		d.Wg.Done()
 
 	case ByronGenesis:
 		if !recent {
@@ -168,7 +195,7 @@ func (d *Downloader) GetConfigFile(aType string) {
 			}
 		}
 		d.ByronGenesis = filePath
-		d.wg.Done()
+		d.Wg.Done()
 	case ShelleyGenesis:
 		if !recent {
 			if url, err = d.GetURL(aType); err != nil {
@@ -186,11 +213,34 @@ func (d *Downloader) GetConfigFile(aType string) {
 		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
 		d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)
 		d.ShelleyGenesis = filePath
-		d.wg.Done()
+		d.Wg.Done()
+
+	case AlonzoGenesis:
+		if !recent {
+			if url, err = d.GetURL(aType); err != nil {
+				err = errors.Annotatef(err, "getting path for: %s", filePath)
+				panic(err.Error())
+			}
+			err = d.DownloadFile(filePath, url)
+			if err != nil {
+				err = errors.Annotatef(err, "getting path for: %s", filePath)
+				panic(err.Error())
+			}
+		}
+		jq := gojsonq.New().File(filePath)
+
+		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)
+		d.AlonzoGenesis = filePath
+		d.Wg.Done()
+
 	case TopologyJSON:
 		err = d.DownloadAndSetTopologyFile()
 		d.TopologyJSON = filePath
-		d.wg.Done()
+		d.Wg.Done()
+
+	default:
+		panic(fmt.Errorf("bad type"))
 	}
 }
 

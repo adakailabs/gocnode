@@ -15,28 +15,28 @@ producers:
 
 relays:
   - pool: "dulcinea"
-    host: "roci-relay0.adakailabs.com"
+    host: "costa-rica.adakailabs.com"
     ip: "192.168.100.46"
-    network: "mainnet"
+    network: "testnet"
     producer_host: rocinante.mooo.com
     producer_port: 3100
     port: 3000
     era: shelley
     rtview_port: 6600
     test_mode: false
-    peers: 5
+    peers: 10
     ext_producer:
-      host: "roci-relay00.adakailabs.com"
+      host: "rocinante.mooo.com"
       port: 3000
 
 
   - pool: "dulcinea"
-    host: "roci-relay1.adakailabs.com"
+    host: "rocinante.mooo.com"
     ip: "192.168.100.47"
-    network: "mainnet"
+    network: "testnet"
     era: shelley
     rtview_port: 6601
-    peers: 4
+    peers: 10
 
   - pool: "rocinante"
     host: "rocinante.mooon.com"
@@ -44,4 +44,4 @@ relays:
     network: "testnet"
     port: 3002
     era: shelley
-    peers: 6
+    peers: 10
