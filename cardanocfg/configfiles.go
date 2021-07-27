@@ -133,12 +133,20 @@ func (d *Downloader) GetURL(aType string) (url string, err error) {
 }
 
 func (d *Downloader) DownloadConfigFiles() (configJSON, topology, shelley, byron, alonzo string) {
-	d.Wg.Add(5)
-	go d.GetConfigFile(ConfigJSON)
-	go d.GetConfigFile(TopologyJSON)
-	go d.GetConfigFile(ShelleyGenesis)
-	go d.GetConfigFile(AlonzoGenesis)
-	go d.GetConfigFile(ByronGenesis)
+	filesToGet := []string{
+		ConfigJSON,
+		TopologyJSON,
+		ShelleyGenesis,
+		//AlonzoGenesis,
+		ByronGenesis,
+	}
+
+	d.Wg.Add(len(filesToGet))
+
+	for _, f := range filesToGet {
+		go d.GetConfigFile(f)
+	}
+
 	d.Wg.Wait()
 
 	d.log.Info("config file: ", d.ConfigJSON)
