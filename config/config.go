@@ -3,8 +3,6 @@ package config
 import (
 	"fmt"
 
-	"github.com/prometheus/common/log"
-
 	l "github.com/adakailabs/gocnode/logger"
 	"github.com/juju/errors"
 	"github.com/mitchellh/go-homedir"
@@ -292,7 +290,7 @@ func (c *C) configNodes() {
 				c.Mapped.Producers[i].Network,
 				c.Mapped.Producers[i].Pool,
 				"backup")
-			log.Info("backup dir configured to: ", c.Mapped.Producers[i].BackupDir)
+			c.log.Info("backup dir configured to: ", c.Mapped.Producers[i].BackupDir)
 		}
 		if c.Mapped.Producers[i].TmpDir == "" {
 			c.Mapped.Producers[i].TmpDir = fmt.Sprintf("%s/%s/%s/%s", "/tmp/cardano-node",
@@ -315,7 +313,7 @@ func (c *C) configNodes() {
 				c.Mapped.Relays[i].Network,
 				c.Mapped.Relays[i].Pool,
 				"backup")
-			log.Info("backup dir configured to: ", c.Mapped.Relays[i].BackupDir)
+			c.log.Info("backup dir configured to: ", c.Mapped.Relays[i].BackupDir)
 		}
 		if c.Mapped.Relays[i].TmpDir == "" {
 			c.Mapped.Relays[i].TmpDir = fmt.Sprintf("%s/%s/%s/%s", "/tmp/cardano-node",
