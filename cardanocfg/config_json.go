@@ -28,7 +28,7 @@ var cardanoBlocks = []string{
 	"cardano.node.Mux",
 }
 
-func (d *Downloader) ConfigureBlocks(JSON []byte) ([]byte, error) {
+func (d *Downloader) ConfigureBlocks(jsonB []byte) ([]byte, error) {
 	var err error
 	mapBackEnd := make(map[string]interface{})
 
@@ -40,28 +40,29 @@ func (d *Downloader) ConfigureBlocks(JSON []byte) ([]byte, error) {
 			mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
 		case "cardano.node.IpSubscription":
 			mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+		// FIXME:
 		// case "cardano.node.Handshake":
-		//	mapBackEnd[key] = []string{"TraceForwarderBK"}
+		// mapBackEnd[key] = []string{"TraceForwarderBK"}
 		default:
-			// mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+			// FIXME: mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
 			d.log.Warn("no default trace for: ", key)
 		}
 	}
 
-	JSON, err = sjson.SetBytes(JSON, "options.mapBackends", mapBackEnd)
+	jsonB, err = sjson.SetBytes(jsonB, "options.mapBackends", mapBackEnd)
 	if err != nil {
-		return JSON, errors.Annotatef(err, "while configuring blocks")
+		return jsonB, errors.Annotatef(err, "while configuring blocks")
 	}
 
-	JSON, err = sjson.SetBytes(JSON, "defaultBackends", []string{"TraceForwarderBK", "KatipBK"})
+	jsonB, err = sjson.SetBytes(jsonB, "defaultBackends", []string{"TraceForwarderBK", "KatipBK"})
 	if err != nil {
-		return JSON, errors.Annotatef(err, "while configuring blocks")
+		return jsonB, errors.Annotatef(err, "while configuring blocks")
 	}
 
-	return JSON, err
+	return jsonB, err
 }
 
-func (d *Downloader) SetEKGVIEWContents(JSON []byte) ([]byte, error) {
+func (d *Downloader) SetEKGVIEWContents(jsonB []byte) ([]byte, error) {
 	var err error
 	type ContentsInner struct {
 		Contains string `json:"contains"`
@@ -89,28 +90,28 @@ func (d *Downloader) SetEKGVIEWContents(JSON []byte) ([]byte, error) {
 		contents0, contents1, contents2, contents3,
 	}
 
-	JSON, err = sjson.SetBytes(JSON, "mapSubtrace.KKKekgview.contents", contentsx)
+	jsonB, err = sjson.SetBytes(jsonB, "mapSubtrace.KKKekgview.contents", contentsx)
 	if err != nil {
-		errors.Annotatef(err, "while configuring blocks")
+		err = errors.Annotatef(err, "while configuring blocks")
 	}
-	return JSON, err
+	return jsonB, err
 }
 
-func (d *Downloader) SetMapSubtraceContents(JSON []byte) ([]byte, error) {
+func (d *Downloader) SetMapSubtraceContents(jsonB []byte) ([]byte, error) {
 	var err error
-	if JSON, err = sjson.SetBytes(JSON, "mapSubtrace.ekgview.subtrace", "FilterTrace"); err != nil {
-		return JSON, err
+	if jsonB, err = sjson.SetBytes(jsonB, "mapSubtrace.ekgview.subtrace", "FilterTrace"); err != nil {
+		return jsonB, err
 	}
 
-	if JSON, err = sjson.SetBytes(JSON, "mapSubtrace.cardanoXXXepoch-validationXXXutxo-stats", "NoTrace"); err != nil {
-		return JSON, err
+	if jsonB, err = sjson.SetBytes(jsonB, "mapSubtrace.cardanoXXXepoch-validationXXXutxo-stats", "NoTrace"); err != nil {
+		return jsonB, err
 	}
 
-	if JSON, err = sjson.SetBytes(JSON, "mapSubtrace.cardanXXXnode-metrics", "Neutral"); err != nil {
-		return JSON, err
+	if jsonB, err = sjson.SetBytes(jsonB, "mapSubtrace.cardanXXXnode-metrics", "Neutral"); err != nil {
+		return jsonB, err
 	}
 
-	return JSON, err
+	return jsonB, err
 }
 
 func (d *Downloader) SetTraceForwardTo(newJSON []byte) ([]byte, error) {
@@ -150,7 +151,7 @@ func (d *Downloader) SetTraces(newJSON []byte) ([]byte, error) {
 	}
 
 	traces := []string{
-		//"TraceBlockFetchClient",
+		// "TraceBlockFetchClient",
 		"TraceBlockFetchDecisions",
 		"TraceBlockFetchProtocol",
 		"TraceBlockFetchProtocolSerialised",

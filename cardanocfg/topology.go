@@ -10,14 +10,62 @@ import (
 	"sort"
 	"time"
 
-	"github.com/adakailabs/gocnode/fastping"
-
-	"github.com/prometheus/common/log"
-
 	"github.com/juju/errors"
 
 	"github.com/k0kubun/pp"
+
+	"github.com/adakailabs/gocnode/fastping"
+
+	"github.com/prometheus/common/log"
 )
+
+const regularRelay = "regular"
+
+func (d *Downloader) DownloadAndSetTopologyFileRelay() (top Topology, err error) {
+	d.log.Info("node is not producer")
+	top, err = d.DownloadTopologyJSON(d.node.Network)
+	if err != nil {
+		return top, err
+	}
+
+	actualProducersdd := make([]Node, 0, 4)
+	for _, p := range d.node.ExtProducer {
+		aP := Node{}
+		aP.Addr = p.Host
+		aP.Port = p.Port
+		aP.Atype = regularRelay
+		aP.Valency = 1
+		actualProducersdd = append(actualProducersdd, aP)
+	}
+	for i := range d.conf.Producers {
+		if d.node.Pool != d.conf.Producers[i].Pool {
+			continue
+		}
+		aP := Node{}
+		aP.Addr = d.conf.Producers[i].Host
+		aP.Port = d.conf.Producers[i].Port
+		aP.Atype = regularRelay
+		aP.Valency = 1
+		actualProducersdd = append(actualProducersdd, aP)
+	}
+	top.Producers = append(top.Producers, actualProducersdd...)
+
+	return top, err
+}
+
+func (d *Downloader) DownloadAndSetTopologyFileProducer() (top Topology, err error) {
+	d.log.Info("node is producer")
+	top = Topology{}
+	top.Producers = make([]Node, len(d.node.Relays))
+
+	for i, r := range d.node.Relays {
+		top.Producers[i].Port = r.Port
+		top.Producers[i].Valency = 1
+		top.Producers[i].Addr = r.Host
+		top.Producers[i].Atype = regularRelay
+	}
+	return top, err
+}
 
 func (d *Downloader) DownloadAndSetTopologyFile() error {
 	var top Topology
@@ -29,43 +77,14 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	}
 
 	if !d.node.IsProducer {
-		d.log.Info("node is not producer")
-		top, err = d.DownloadTopologyJSON(d.node.Network)
+		top, err = d.DownloadAndSetTopologyFileRelay()
 		if err != nil {
 			return err
 		}
-
-		actualProducersdd := make([]Node, 0, 4)
-		for _, p := range d.node.ExtProducer {
-			aP := Node{}
-			aP.Addr = p.Host
-			aP.Port = p.Port
-			aP.Atype = "regular"
-			aP.Valency = 1
-			actualProducersdd = append(actualProducersdd, aP)
-		}
-		for _, p := range d.conf.Producers {
-			if d.node.Pool != p.Pool {
-				continue
-			}
-			aP := Node{}
-			aP.Addr = p.Host
-			aP.Port = p.Port
-			aP.Atype = "regular"
-			aP.Valency = 1
-			actualProducersdd = append(actualProducersdd, aP)
-		}
-		top.Producers = append(top.Producers, actualProducersdd...)
 	} else {
-		d.log.Info("node is producer")
-		top = Topology{}
-		top.Producers = make([]Node, len(d.node.Relays))
-
-		for i, r := range d.node.Relays {
-			top.Producers[i].Port = r.Port
-			top.Producers[i].Valency = 1
-			top.Producers[i].Addr = r.Host
-			top.Producers[i].Atype = "regular"
+		top, err = d.DownloadAndSetTopologyFileProducer()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -78,8 +97,6 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 	if err != nil {
 		return err
 	}
-	log.Warn("first write")
-	pp.Print(top)
 
 	if !d.node.IsProducer {
 		var topOthers Topology
@@ -87,6 +104,7 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 			topOthers, err = d.MainNetRelays()
 		} else {
 			topOthers, err = d.TestNetRelays()
+			pp.Println("topOthers", topOthers)
 		}
 		if err != nil {
 			d.log.Errorf(err.Error())
@@ -101,8 +119,6 @@ func (d *Downloader) DownloadAndSetTopologyFile() error {
 			d.log.Errorf(err.Error())
 		}
 		log.Info("filePath:", filePath)
-		log.Warn("second write")
-		pp.Print(top)
 	}
 
 	return nil
@@ -137,49 +153,6 @@ func (d *Downloader) DownloadTopologyJSON(aNet string) (Topology, error) {
 	return top, nil
 }
 
-func (d *Downloader) TestLatencyCycle(newProduces NodeList) (finalProducers NodeList, err error) {
-	const testCount = 10
-	const delay = time.Second * 1
-	finalProducersMap := make(map[string]Node)
-
-	finalProducers, err = d.TestLatency(newProduces)
-
-	for _, p := range finalProducers {
-		finalProducersMap[p.Addr] = p
-	}
-
-	for i := 0; i < testCount; i++ {
-		if i > 0 {
-			time.Sleep(delay)
-		}
-		newProduces, err = d.TestLatency(newProduces)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, p := range newProduces {
-			np, found := finalProducersMap[p.Addr]
-			if found {
-				np.LatencyAcc += p.Latency
-				np.LatencyAccCount++
-				finalProducersMap[p.Addr] = np
-			} else {
-				finalProducersMap[p.Addr] = np
-			}
-		}
-	}
-
-	tmpProducers := make(NodeList, 0)
-
-	for _, p := range finalProducersMap {
-		p.Latency = time.Duration(uint64(p.LatencyAcc) / p.LatencyAccCount)
-		tmpProducers = append(tmpProducers, p)
-		sort.Sort(tmpProducers)
-	}
-
-	return tmpProducers, err
-}
-
 func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList, err error) {
 	rand.Shuffle(len(newProduces),
 		func(i, j int) {
@@ -192,15 +165,16 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 	defer close(nodeChan)
 
 	testNode := func(p Node) {
+		var conn net.Conn
 		d.log.Info("testing relay: ", p.Addr)
 		now := time.Now()
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
+		conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
 		if err != nil {
 			d.log.Warnf("%s: %s", p.Addr, err.Error())
 		} else {
 			duration := time.Since(now)
 			conn.Close()
-			p.Latency = duration
+			p.SetLatency(duration)
 			nodeChan <- p
 			d.log.Infof("relay %s latency: %v", p.Addr, duration)
 		}
@@ -227,11 +201,11 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 			}
 		}
 	}
-	sort.Sort(finalProducers)
-	return finalProducers, fmt.Errorf("unexpected function end")
+	// sort.Sort(finalProducers)
+	// return finalProducers, fmt.Errorf("unexpected function end")
 }
 
-func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (finalProducers NodeList, err error) {
+func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (allLostPackets, finalProducers NodeList, err error) {
 	rand.Shuffle(len(newProduces),
 		func(i, j int) {
 			newProduces[i],
@@ -241,14 +215,25 @@ func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (finalProducers N
 
 	nodeChan := make(chan Node)
 	defer close(nodeChan)
+	allLostPackets = make(NodeList, 0)
 
 	testNode := func(p Node) {
+		var duration time.Duration
+		var packetLoss float64
+
 		d.log.Info("testing relay: ", p.Addr)
-		duration, err := fastping.TestAddress(p.Addr)
+		duration, packetLoss, err = fastping.TestAddress(p.Addr)
 		if err != nil {
 			d.log.Warnf("addresss %s did not pass latency test: %s", p.Addr, err.Error())
+			if packetLoss == 100 {
+				allLostPackets = append(allLostPackets, p)
+			} else {
+				if packetLoss > 0 {
+					d.log.Warnf("droping relay %s due to packet loss test", p.Addr)
+				}
+			}
 		} else {
-			p.Latency = duration
+			p.SetLatency(duration)
 			nodeChan <- p
 			d.log.Infof("relay %s latency: %v", p.Addr, duration)
 		}
@@ -265,31 +250,32 @@ func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (finalProducers N
 		case <-c.C:
 			d.log.Warn("node tests time count, number of nodes that meet the criteria is: ", len(finalProducers))
 			sort.Sort(finalProducers)
-			return finalProducers, err
+			return allLostPackets, finalProducers, err
 
 		case p := <-nodeChan:
 			finalProducers = append(finalProducers, p)
 			if len(finalProducers) == len(newProduces) {
 				sort.Sort(finalProducers)
-				return finalProducers, err
+				return allLostPackets, finalProducers, err
 			}
 		}
 	}
-	sort.Sort(finalProducers)
-	return finalProducers, fmt.Errorf("unexpected function end")
+	// return allLostPackets, finalProducers, fmt.Errorf("unexpected function end")
 }
 
 func (d *Downloader) GetTestNetRelays() (tp Topology, newProduces []Node, err error) {
 	rand.Seed(time.Now().UnixNano()) // FIXME
 	const URI = "https://explorer.cardano-testnet.iohkdev.io/relays/topology.json"
 	const tmpPath = "/tmp/testnet.json"
-	if err := d.DownloadFile(tmpPath, URI); err != nil {
-		return tp, newProduces, err
+	if er := d.DownloadFile(tmpPath, URI); er != nil {
+		er = errors.Annotatef(er, "while attempting to download: %s", tmpPath)
+		return tp, newProduces, er
 	}
 
 	tp = Topology{}
 	fBytesOthers, err := ioutil.ReadFile(tmpPath)
 	if err != nil {
+		err = errors.Annotatef(err, "while opening %s: ", tmpPath)
 		return tp, newProduces, err
 	}
 	err = json.Unmarshal(fBytesOthers, &tp)
@@ -302,8 +288,8 @@ func (d *Downloader) GetTestNetRelays() (tp Topology, newProduces []Node, err er
 	for _, p := range tp.Producers {
 		found := false
 
-		for _, i := range d.conf.Relays {
-			if i.Host == p.Addr {
+		for i := range d.conf.Relays {
+			if d.conf.Relays[i].Host == p.Addr {
 				found = true
 			}
 		}
@@ -318,8 +304,26 @@ func (d *Downloader) GetTestNetRelays() (tp Topology, newProduces []Node, err er
 	return tp, newProduces, err
 }
 
+func (d *Downloader) SetValency(relays NodeList) (NodeList, error) {
+	for i := range relays {
+		addr := net.ParseIP(relays[i].Addr)
+		if addr == nil {
+			if relays[i].Valency < 2 {
+				ipList, err := net.LookupIP(relays[i].Addr)
+				if err != nil {
+					return relays, err
+				}
+				relays[i].Valency = uint(len(ipList))
+			}
+		}
+	}
+
+	return relays, nil
+}
+
 func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 	var pingRelays NodeList
+	var allLost NodeList
 	var netRelays NodeList
 	var conRelays NodeList
 
@@ -330,7 +334,7 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 		return
 	}
 
-	pingRelays, err = d.TestLatencyWithPing(netRelays)
+	allLost, pingRelays, err = d.TestLatencyWithPing(netRelays)
 	if err != nil {
 		return tp, err
 	}
@@ -344,7 +348,7 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 		relaysMap[key] = true
 	}
 
-	conRelays, err = d.TestLatency(netRelays)
+	conRelays, err = d.TestLatency(allLost)
 	if err != nil {
 		return tp, err
 	}
@@ -361,6 +365,11 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 		}
 	}
 
+	relays, err = d.SetValency(relays)
+	if err != nil {
+		return Topology{}, err
+	}
+
 	if len(relays) > int(d.node.Peers) {
 		tp.Producers = relays[0:d.node.Peers]
 	} else {
@@ -368,111 +377,6 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 	}
 
 	return tp, err
-}
-
-func (d *Downloader) TestNetRelaysOld() (Topology, error) {
-	rand.Seed(time.Now().UnixNano()) // FIXME
-	const URI = "https://explorer.cardano-testnet.iohkdev.io/relays/topology.json"
-	const tmpPath = "/tmp/testnet.json"
-	if err := d.DownloadFile(tmpPath, URI); err != nil {
-		return Topology{}, err
-	}
-
-	topOthers := Topology{}
-	fBytesOthers, err := ioutil.ReadFile(tmpPath)
-	if err != nil {
-		return Topology{}, err
-	}
-	err = json.Unmarshal(fBytesOthers, &topOthers)
-	if err != nil {
-		return Topology{}, err
-	}
-
-	newProduces := make([]Node, 0, len(topOthers.Producers))
-	finalProducers := make([]Node, 0, 30)
-
-	for _, p := range topOthers.Producers {
-		found := false
-
-		for _, i := range d.node.Relays {
-			if i.Host == p.Addr {
-				found = true
-			}
-		}
-
-		if found {
-			continue
-		}
-
-		p.Valency = 1
-		newProduces = append(newProduces, p)
-	}
-
-	rand.Shuffle(len(newProduces),
-		func(i, j int) {
-			newProduces[i],
-				newProduces[j] = newProduces[j],
-				newProduces[i]
-		})
-
-	listComplete := false
-	producersTmp := newProduces[0 : len(newProduces)/3*2]
-	nodeChan := make(chan Node)
-
-	testNode := func(p Node) {
-		now := time.Now()
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
-		if err != nil {
-			d.log.Warnf("%s: %s", p.Addr, err.Error())
-		} else {
-			duration := time.Since(now)
-			conn.Close()
-
-			if duration.Milliseconds() > 150 {
-				d.log.Warnf("relay is bad: %s -- %d ms", p.Addr, duration.Milliseconds())
-			} else {
-				d.log.Infof("relay is good: %s -- %d ms", p.Addr, duration.Milliseconds())
-				if !listComplete {
-					nodeChan <- p
-				}
-			}
-		}
-	}
-
-	for _, p := range producersTmp {
-		go testNode(p)
-	}
-
-	c := time.NewTimer(time.Second * 10)
-
-	for !listComplete {
-		select {
-		case <-c.C:
-			log.Warn("node tests time count, number of nodes that meet the criteria is: ", len(finalProducers))
-			listComplete = true
-			break
-
-		case p := <-nodeChan:
-			finalProducers = append(finalProducers, p)
-			if len(finalProducers) >= int(d.node.Peers) {
-				listComplete = true
-				break
-			}
-		}
-	}
-
-	close(nodeChan)
-
-	if len(finalProducers) >= int(d.node.Peers) {
-		topOthers.Producers = finalProducers[0:d.node.Peers]
-	} else {
-		topOthers.Producers = finalProducers
-	}
-	if len(finalProducers) == 0 {
-		panic("no relays found")
-	}
-
-	return topOthers, nil
 }
 
 func (d *Downloader) MainNetRelays() (Topology, error) {
@@ -587,6 +491,7 @@ func (d *Downloader) MainnetDownloadNodes() ([]Node, error) {
 	return newNodes, nil
 }
 
+/*
 func (d *Downloader) MainNetGetNodes() error {
 	newProduces, err := d.MainnetDownloadNodes()
 	if err != nil {
@@ -628,3 +533,4 @@ func (d *Downloader) MainNetGetNodes() error {
 	d.relaysStreamDone <- 0
 	return nil
 }
+*/

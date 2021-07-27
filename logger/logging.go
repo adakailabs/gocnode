@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/juju/errors"
 	"go.uber.org/zap"
@@ -47,6 +48,7 @@ func NewLogConfig(c config, name string) (loggerout *zap.SugaredLogger, err erro
 	}
 	logger, err = cfg.Build()
 	if err != nil {
+		fmt.Println(err.Error())
 		err = errors.Annotate(err, "building zap configuration")
 		return nil, err
 	}
