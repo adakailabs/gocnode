@@ -122,7 +122,6 @@ func (r *P) processError(line string) {
 		l := timeRe.FindStringSubmatch(line)
 		r.Log.Errorf("time limit error: %s", l[1])
 	}
-	//cardano_relay1.1.7ok8rxpj2x8d@raspberry00    | [34e768bb:cardano.node.DnsSubscription:Error:17976] [2021-05-10 18:57:35.21 UTC] Domain: "rocinante.mooo.com" Connection Attempt Exception, destination 186.32.161.134:5100 exception: Network.Socket.connect: <socket: 48>: does not exist (Connection refused)
 }
 func (r *P) processInfo(line string) {
 	if !strings.Contains(line, "cardano.node.BlockFetchClient") &&

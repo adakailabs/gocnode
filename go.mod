@@ -22,7 +22,7 @@ require (
 	github.com/thedevsaddam/gojsonq v2.3.0+incompatible
 	github.com/tidwall/sjson v1.1.6
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20210726213435-c6fcb2dbf985 // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	gonum.org/v1/gonum v0.9.3 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )

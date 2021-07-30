@@ -8,7 +8,12 @@ import (
 	"net"
 	"os"
 	"sort"
+	"sync"
 	"time"
+
+	"gonum.org/v1/gonum/stat"
+
+	"github.com/adakailabs/go-traceroute/traceroute"
 
 	"github.com/juju/errors"
 
@@ -165,18 +170,25 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 	defer close(nodeChan)
 
 	testNode := func(p Node) {
+		p.SetLatency(time.Second)
 		var conn net.Conn
+		var er error
 		d.log.Info("testing relay: ", p.Addr)
-		now := time.Now()
-		conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
-		if err != nil {
-			d.log.Warnf("%s: %s", p.Addr, err.Error())
+
+		if conn, er = net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port)); er != nil {
+			d.log.Errorf("%s: %s", p.Addr, er.Error())
+			return
 		} else {
-			duration := time.Since(now)
 			conn.Close()
+			duration, er := d.latencyBaseadOnRoute(p.Addr)
+			d.log.Infof("IP: %s --> %dms", p.Addr, duration.Milliseconds())
+			if er != nil {
+				d.log.Errorf(er.Error())
+				return
+			}
 			p.SetLatency(duration)
 			nodeChan <- p
-			d.log.Infof("relay %s latency: %v", p.Addr, duration)
+			d.log.Debugf("relay %s latency: %v", p.Addr, duration)
 		}
 	}
 
@@ -184,7 +196,7 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 		go testNode(p)
 	}
 
-	c := time.NewTimer(time.Second * 15)
+	c := time.NewTimer(time.Second * 40)
 
 	for {
 		select {
@@ -201,11 +213,74 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 			}
 		}
 	}
-	// sort.Sort(finalProducers)
-	// return finalProducers, fmt.Errorf("unexpected function end")
 }
 
 func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (allLostPackets, finalProducers NodeList, err error) {
+	rand.Shuffle(len(newProduces),
+		func(i, j int) {
+			newProduces[i],
+				newProduces[j] = newProduces[j],
+				newProduces[i]
+		})
+
+	nodeChan := make(chan Node)
+	defer close(nodeChan)
+	mu := &sync.Mutex{}
+	allLostPackets = make(NodeList, 0)
+
+	testNode := func(p Node) {
+		var duration time.Duration
+		var packetLoss float64
+
+		d.log.Info("testing relay: ", p.Addr)
+		duration, packetLoss, err = fastping.TestAddress(p.Addr)
+		if err != nil {
+			if packetLoss == 100 {
+				mu.Lock()
+				allLostPackets = append(allLostPackets, p)
+				mu.Unlock()
+				err = nil
+				d.log.Debugf("100% packets lost %s", p.Addr)
+			} else if packetLoss > 0 {
+				d.log.Warnf("droping relay %s due to ping test: %f lost ", p.Addr, packetLoss)
+				err = nil
+			} else if packetLoss == 0 {
+				d.log.Error("ping error: ", err.Error())
+			}
+		} else {
+			p.SetLatency(duration)
+			nodeChan <- p
+			d.log.Infof("relay %s latency: %v", p.Addr, duration)
+		}
+	}
+
+	for _, p := range newProduces {
+		go testNode(p)
+	}
+
+	c := time.NewTimer(time.Second * 60)
+
+	for {
+		select {
+		case <-c.C:
+			d.log.Warn("node tests time count, number of nodes that meet the criteria is: ", len(finalProducers))
+			if err != nil {
+				err = errors.Annotatef(err, "test timeout && error: ", err.Error())
+			}
+			sort.Sort(finalProducers)
+			return allLostPackets, finalProducers, err
+
+		case p := <-nodeChan:
+			finalProducers = append(finalProducers, p)
+			if len(finalProducers) == len(newProduces) {
+				sort.Sort(finalProducers)
+				return allLostPackets, finalProducers, err
+			}
+		}
+	}
+}
+
+func (d *Downloader) TestLatencyWithTraceRoute(newProduces NodeList) (allLostPackets, finalProducers NodeList, err error) {
 	rand.Shuffle(len(newProduces),
 		func(i, j int) {
 			newProduces[i],
@@ -227,10 +302,8 @@ func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (allLostPackets, 
 			d.log.Warnf("addresss %s did not pass latency test: %s", p.Addr, err.Error())
 			if packetLoss == 100 {
 				allLostPackets = append(allLostPackets, p)
-			} else {
-				if packetLoss > 0 {
-					d.log.Warnf("droping relay %s due to packet loss test", p.Addr)
-				}
+			} else if packetLoss > 0 {
+				d.log.Warnf("droping relay %s due to packet loss test", p.Addr)
 			}
 		} else {
 			p.SetLatency(duration)
@@ -336,6 +409,7 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 
 	allLost, pingRelays, err = d.TestLatencyWithPing(netRelays)
 	if err != nil {
+		err = errors.Annotatef(err, "TestNetRelays:")
 		return tp, err
 	}
 
@@ -359,7 +433,7 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 		key := fmt.Sprintf("%s:%d", r.Addr, r.Port)
 		_, ok := relaysMap[key]
 		if !ok {
-			d.log.Warnf("adding con relay: %s", r.Addr)
+			d.log.Debugf("adding con relay: %s", r.Addr)
 			r.Valency = 1
 			relays = append(relays, r)
 		}
@@ -367,6 +441,7 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 
 	relays, err = d.SetValency(relays)
 	if err != nil {
+		d.log.Error(err.Error())
 		return Topology{}, err
 	}
 
@@ -489,6 +564,64 @@ func (d *Downloader) MainnetDownloadNodes() ([]Node, error) {
 		})
 
 	return newNodes, nil
+}
+
+func (d *Downloader) latencyBaseadOnRoute(addr string) (time.Duration, error) {
+	delay := rand.Intn(15)
+	time.Sleep(time.Second * time.Duration(delay))
+	ip := net.ParseIP(addr)
+	d.log.Info("routing ip: ", ip, addr)
+	if ip == nil {
+		hosts, er := net.LookupIP(addr)
+		if er != nil {
+			d.log.Error(er.Error())
+			return time.Second * 2, er
+		}
+		ip = hosts[0]
+	}
+
+	d.log.Info("tracing ip: ", ip.String())
+
+	duration := time.Second * 2
+
+	const tries = 3
+
+	for i := 0; i < tries; i++ {
+		hops, err := traceroute.Trace(ip)
+		if err != nil {
+			return duration, err
+		}
+		if len(hops) > 3 {
+			nodes := hops[len(hops)-1].Nodes
+			if len(nodes) > 0 {
+				list := nodes[len(nodes)-1].RTT
+				listFloat := make([]float64, len(list))
+				for i, num := range list {
+					listFloat[i] = float64(num)
+				}
+				duration = time.Duration(stat.Mean(listFloat, nil))
+				stdDev := stat.StdDev(listFloat, nil)
+				if stdDev > 50*float64(time.Millisecond) {
+					duration = time.Second * 2
+					return duration, err
+				}
+				if duration < time.Millisecond*50 {
+					d.log.Errorf("XXXX: %s %dms stdev: %f", addr, duration.Milliseconds(), stdDev)
+					pp.Println(list)
+					pp.Println(hops)
+				}
+				return duration, err
+			} else {
+				d.log.Warnf("route nodes for IP: %v is 0", addr)
+			}
+		} else {
+			time.Sleep(time.Second)
+			d.log.Warnf("hops for IP: %v is 0, try: %d", ip.String(), i)
+		}
+	}
+	d.log.Errorf("hops for IP: %v is 0", addr)
+
+	return duration, nil
 }
 
 /*

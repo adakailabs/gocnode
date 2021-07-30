@@ -20,8 +20,9 @@ import (
 	"github.com/adakailabs/gocnode/config"
 )
 
-// const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
-const cfgFile = "/home/galuisal/Documents/cardano/cardano-docker/cardano-node/gocnode/gocnode.yaml"
+const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
+
+//const cfgFile = "/home/galuisal/Documents/cardano/cardano-docker/cardano-node/gocnode/gocnode.yaml"
 
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
@@ -66,7 +67,6 @@ func TestConfigTopology(t *testing.T) {
 
 func TestConfigTopologyProducer(t *testing.T) {
 	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
 	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
@@ -102,6 +102,10 @@ func TestConfigTestnetTopology(t *testing.T) {
 	}
 
 	pp.Print(relays)
+
+	for _, re := range relays.Producers {
+		t.Logf("IP: %s --> %dms", re.Addr, re.GetLatency().Milliseconds())
+	}
 }
 
 func TestConfigTestnetOptimzer(t *testing.T) {
@@ -131,6 +135,36 @@ func TestConfigTestnetOptimzer(t *testing.T) {
 
 	for _, p := range relays {
 		pp.Printf("relay: %s --> %s \n", p.Addr, p.GetLatency().Milliseconds())
+	}
+}
+
+func TestConfigTestnetOptimzerRoute(t *testing.T) {
+	a := assert.New(t)
+
+	c, err := config.New(cfgFile, true, "Debug")
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	d, err2 := cardanocfg.New(&c.Relays[0], c)
+	if !a.Nil(err2) {
+		t.FailNow()
+	}
+
+	_, relays, err3 := d.GetTestNetRelays()
+	if !a.Nil(err3) {
+		t.FailNow()
+	}
+
+	relays, err4 := d.TestLatency(relays)
+	if !a.Nil(err4) {
+		t.FailNow()
+	}
+
+	pp.Print(relays)
+
+	for _, p := range relays {
+		t.Logf("relay: %v --> %v \n", p.Addr, p.GetLatency().Milliseconds())
 	}
 }
 
@@ -228,8 +262,11 @@ func TestConfigMainnetTopology(t *testing.T) {
 }
 
 func TestTraceRouteGoogle(t *testing.T) {
-	//a := assert.New(tr)
-	hosts, _ := net.LookupIP("www.google.com")
+	// a := assert.New(tr)
+	//hosts, _ := net.LookupIP("roci-master00.adakailabs.com")
+	//hosts, _ := net.LookupIP("92.249.148.171")
+	// hosts, _ := net.LookupIP("34.127.91.195")
+	hosts, _ := net.LookupIP("195.154.69.26")
 	ip := hosts[0]
 	hops, err := traceroute.Trace(ip)
 	if err != nil {
@@ -240,10 +277,13 @@ func TestTraceRouteGoogle(t *testing.T) {
 			log.Printf("%d. %v %v", h.Distance, n.IP, n.RTT)
 		}
 	}
+
+	list := hops[len(hops)-1].Nodes[len(hops[len(hops)-1].Nodes)-1]
+
+	fmt.Println(list)
 }
 
-//
-//func TestTraceRoute(t *testing.T) {
+// func TestTraceRoute(t *testing.T) {
 //	//host := "relays-new.cardano-testnet.iohkdev.io"
 //	a := assert.New(t)
 //

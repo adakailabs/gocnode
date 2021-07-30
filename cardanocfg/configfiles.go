@@ -39,8 +39,6 @@ type Downloader struct {
 	ShelleyGenesis   string
 	AlonzoGenesis    string
 	ByronGenesis     string
-
-	relaysMap map[string]string
 }
 
 type Topology struct {
@@ -66,18 +64,24 @@ func (ms NodeList) Swap(i, j int) {
 // -1, 0, 1 and reduce the number of calls for greater efficiency: an
 // exercise for the reader.
 func (ms NodeList) Less(i, j int) bool {
-	return ms[i].Latency < ms[j].Latency
+	return ms[i].latency < ms[j].latency
 }
 
 type Node struct {
-	Atype           string `json:"type"`
-	Addr            string `json:"addr"`
-	Port            uint   `json:"port"`
-	Valency         uint   `json:"valency"`
-	Debug           string `json:"debug"`
-	Latency         time.Duration
-	LatencyAcc      time.Duration
-	LatencyAccCount uint64
+	Atype   string `json:"type"`
+	Addr    string `json:"addr"`
+	Port    uint   `json:"port"`
+	Valency uint   `json:"valency"`
+	Debug   string `json:"debug"`
+	latency time.Duration
+}
+
+func (p *Node) SetLatency(la time.Duration) {
+	p.latency = la
+}
+
+func (p *Node) GetLatency() time.Duration {
+	return p.latency
 }
 
 func New(n *config.Node, c *config.C) (*Downloader, error) {
@@ -137,7 +141,7 @@ func (d *Downloader) DownloadConfigFiles() (configJSON, topology, shelley, byron
 		ConfigJSON,
 		TopologyJSON,
 		ShelleyGenesis,
-		//AlonzoGenesis,
+		// AlonzoGenesis,
 		ByronGenesis,
 	}
 
@@ -156,7 +160,6 @@ func (d *Downloader) DownloadConfigFiles() (configJSON, topology, shelley, byron
 }
 
 func (d *Downloader) GetConfigFile(aType string) {
-	var url string
 	var err error
 	var filePath string
 	var recent bool
@@ -191,65 +194,59 @@ func (d *Downloader) GetConfigFile(aType string) {
 		d.Wg.Done()
 
 	case ByronGenesis:
-		if !recent {
-			if url, err = d.GetURL(aType); err != nil {
-				err = errors.Annotatef(err, "getting path for: %s", filePath)
-				panic(err.Error())
-			}
-			err = d.DownloadFile(filePath, url)
-			if err != nil {
-				err = errors.Annotatef(err, "getting path for: %s", filePath)
-				panic(err.Error())
-			}
+		if er := d.DownloadGenesis(recent, filePath, aType); err != nil {
+			panic(er.Error())
 		}
-		d.ByronGenesis = filePath
-		d.Wg.Done()
 	case ShelleyGenesis:
-		if !recent {
-			if url, err = d.GetURL(aType); err != nil {
-				err = errors.Annotatef(err, "getting path for: %s", filePath)
-				panic(err.Error())
-			}
-			err = d.DownloadFile(filePath, url)
-			if err != nil {
-				err = errors.Annotatef(err, "getting path for: %s", filePath)
-				panic(err.Error())
-			}
+		if er := d.DownloadGenesis(recent, filePath, aType); err != nil {
+			panic(er.Error())
 		}
-		jq := gojsonq.New().File(filePath)
-
-		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
-		d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)
-		d.ShelleyGenesis = filePath
-		d.Wg.Done()
-
 	case AlonzoGenesis:
-		if !recent {
-			if url, err = d.GetURL(aType); err != nil {
-				err = errors.Annotatef(err, "getting path for: %s", filePath)
-				panic(err.Error())
-			}
-			err = d.DownloadFile(filePath, url)
-			if err != nil {
-				err = errors.Annotatef(err, "getting path for: %s", filePath)
-				panic(err.Error())
-			}
+		if er := d.DownloadGenesis(recent, filePath, aType); err != nil {
+			panic(er.Error())
 		}
-		jq := gojsonq.New().File(filePath)
-
-		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
-		d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)
-		d.AlonzoGenesis = filePath
-		d.Wg.Done()
-
 	case TopologyJSON:
-		err = d.DownloadAndSetTopologyFile()
+		if er := d.DownloadAndSetTopologyFile(); er != nil {
+			panic(er.Error())
+		}
 		d.TopologyJSON = filePath
 		d.Wg.Done()
 
 	default:
 		panic(fmt.Errorf("bad type"))
 	}
+}
+func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err error) {
+	if !recent {
+		var url string
+		if url, err = d.GetURL(aType); err != nil {
+			err = errors.Annotatef(err, "getting path for: %s", filePath)
+			panic(err.Error())
+		}
+		err = d.DownloadFile(filePath, url)
+		if err != nil {
+			err = errors.Annotatef(err, "getting path for: %s", filePath)
+			panic(err.Error())
+		}
+	}
+	jq := gojsonq.New().File(filePath)
+
+	d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)
+	if aType == ShelleyGenesis {
+		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		d.ShelleyGenesis = filePath
+	}
+	if aType == ByronGenesis {
+		d.ShelleyGenesis = filePath
+	}
+	if aType == AlonzoGenesis {
+		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		d.ShelleyGenesis = filePath
+	}
+
+	d.Wg.Done()
+
+	return err
 }
 
 // DownloadFile will download a url to a local file. It's efficient because it will
