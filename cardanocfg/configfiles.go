@@ -141,7 +141,7 @@ func (d *Downloader) DownloadConfigFiles() (configJSON, topology, shelley, byron
 		ConfigJSON,
 		TopologyJSON,
 		ShelleyGenesis,
-		// AlonzoGenesis,
+		AlonzoGenesis,
 		ByronGenesis,
 	}
 
@@ -240,8 +240,8 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 		d.ShelleyGenesis = filePath
 	}
 	if aType == AlonzoGenesis {
-		d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
-		d.ShelleyGenesis = filePath
+		//d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		d.AlonzoGenesis = filePath
 	}
 
 	d.Wg.Done()

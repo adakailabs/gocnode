@@ -12,6 +12,12 @@ producers:
     is_producer: true
     rtview_port: 6700
     test_mode: false
+    ext_relays:
+      - host: "testme1.mooo.com"
+        port: 3004
+      - host: "testme2.mooo.com"
+        port: 3005
+
 
 relays:
   - pool: "dulcinea"
@@ -25,10 +31,14 @@ relays:
     rtview_port: 6600
     test_mode: false
     peers: 10
-    ext_producer:
-      host: "rocinante.mooo.com"
-      port: 3000
-
+#    ext_producer:
+#      - host: "rocinante.mooo.com"
+#        port: 3000
+    ext_relays:
+      - host: "testme1.mooo.com"
+        port: 3004
+      - host: "testme2.mooo.com"
+        port: 3005
 
   - pool: "dulcinea"
     host: "rocinante.mooo.com"

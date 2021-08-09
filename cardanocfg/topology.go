@@ -168,27 +168,33 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 
 	nodeChan := make(chan Node)
 	defer close(nodeChan)
+	done := false
 
 	testNode := func(p Node) {
 		p.SetLatency(time.Second)
 		var conn net.Conn
 		var er error
 		d.log.Info("testing relay: ", p.Addr)
-
+		aTime := time.Now()
 		if conn, er = net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port)); er != nil {
 			d.log.Errorf("%s: %s", p.Addr, er.Error())
 			return
 		} else {
+			duration := time.Since(aTime)
 			conn.Close()
-			duration, er := d.latencyBaseadOnRoute(p.Addr)
-			d.log.Infof("IP: %s --> %dms", p.Addr, duration.Milliseconds())
+
+			//duration, er := d.latencyBaseadOnRoute(p.Addr)
+
+			d.log.Debugf("IP: %s --> %dms", p.Addr, duration.Milliseconds())
 			if er != nil {
 				d.log.Errorf(er.Error())
 				return
 			}
 			p.SetLatency(duration)
-			nodeChan <- p
-			d.log.Debugf("relay %s latency: %v", p.Addr, duration)
+			if !done {
+				nodeChan <- p
+				d.log.Debugf("relay %s latency: %v", p.Addr, duration)
+			}
 		}
 	}
 
@@ -201,6 +207,7 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 	for {
 		select {
 		case <-c.C:
+			done = true
 			d.log.Warn("node tests time count, number of nodes that meet the criteria is: ", len(finalProducers))
 			sort.Sort(finalProducers)
 			return finalProducers, err
@@ -208,6 +215,7 @@ func (d *Downloader) TestLatency(newProduces NodeList) (finalProducers NodeList,
 		case p := <-nodeChan:
 			finalProducers = append(finalProducers, p)
 			if len(finalProducers) == len(newProduces) {
+				done = true
 				sort.Sort(finalProducers)
 				return finalProducers, err
 			}
@@ -265,7 +273,7 @@ func (d *Downloader) TestLatencyWithPing(newProduces NodeList) (allLostPackets, 
 		case <-c.C:
 			d.log.Warn("node tests time count, number of nodes that meet the criteria is: ", len(finalProducers))
 			if err != nil {
-				err = errors.Annotatef(err, "test timeout && error: ", err.Error())
+				err = errors.Annotatef(err, "test timeout && error: %s", err.Error())
 			}
 			sort.Sort(finalProducers)
 			return allLostPackets, finalProducers, err
@@ -396,7 +404,7 @@ func (d *Downloader) SetValency(relays NodeList) (NodeList, error) {
 
 func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 	var pingRelays NodeList
-	var allLost NodeList
+	// var allLost NodeList
 	var netRelays NodeList
 	var conRelays NodeList
 
@@ -407,27 +415,32 @@ func (d *Downloader) TestNetRelays() (tp Topology, err error) {
 		return
 	}
 
-	allLost, pingRelays, err = d.TestLatencyWithPing(netRelays)
-	if err != nil {
-		err = errors.Annotatef(err, "TestNetRelays:")
-		return tp, err
-	}
-
 	for i := range pingRelays {
-		pingRelays[i].Valency = 1
+		netRelays[i].Valency = 1
 	}
 
-	for _, p := range pingRelays {
-		key := fmt.Sprintf("%s:%d", p.Addr, p.Port)
-		relaysMap[key] = true
-	}
+	// allLost, pingRelays, err = d.TestLatencyWithPing(netRelays)
+	// if err != nil {
+	//	err = errors.Annotatef(err, "TestNetRelays:")
+	//	return tp, err
+	// }
 
-	conRelays, err = d.TestLatency(allLost)
+	// for i := range pingRelays {
+	// 	pingRelays[i].Valency = 1
+	// }
+
+	// for _, p := range pingRelays {
+	//	key := fmt.Sprintf("%s:%d", p.Addr, p.Port)
+	//	relaysMap[key] = true
+	// }
+
+	conRelays, err = d.TestLatency(netRelays)
 	if err != nil {
 		return tp, err
 	}
 
-	relays := pingRelays
+	//relays := pingRelays
+	relays := make(NodeList, 0)
 
 	for _, r := range conRelays {
 		key := fmt.Sprintf("%s:%d", r.Addr, r.Port)

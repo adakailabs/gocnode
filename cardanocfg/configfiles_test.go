@@ -77,7 +77,7 @@ func TestConfigTopologyProducer(t *testing.T) {
 	files := []string{
 		cardanocfg.TopologyJSON,
 	}
-
+	d.Wg.Add(1)
 	for _, file := range files {
 		d.GetConfigFile(file)
 	}

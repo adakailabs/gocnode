@@ -120,6 +120,9 @@ func (r *R) setCheckDBPath() error {
 		if os.IsNotExist(err) {
 			if _, err2 := os.Stat(r.NodeC.BackupDir); err2 == nil {
 				r.Log.Warnf("database not found but found a backup, will copy from backup an initial version to speed up the process")
+				if er, _ := os.Stat(r.NodeC.BackupDir + "/db/node.socket"); er == nil {
+					os.Remove(r.NodeC.BackupDir + "/db/node.socket")
+				}
 				if er := copyd.Copy(r.NodeC.BackupDir, r.NodeC.RootDir); er != nil {
 					er = errors.Annotate(er, "could not copy backup")
 					r.Log.Error(er.Error())
@@ -162,6 +165,9 @@ func (r *R) setCheckDBPath() error {
 
 func (r *R) setCMD0Args() {
 	r.Cmd0Args = append(r.Cmd0Args,
+		"+RTS",
+		"-N",
+		"-RTS",
 		r.cnargs.DatabasePathS,
 		r.cnargs.DatabasePath,
 		r.cnargs.SocketPathS,
@@ -240,11 +246,11 @@ func (r *R) StartCnode() (err error) {
 		return err
 	}
 
+	r.setCMD1Args()
+
 	r.setCMD0Args()
 
 	pp.Println(r.cnargs)
-
-	r.setCMD1Args()
 
 	cer := make(chan error)
 

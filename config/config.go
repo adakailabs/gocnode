@@ -5,6 +5,7 @@ import (
 
 	l "github.com/adakailabs/gocnode/logger"
 	"github.com/juju/errors"
+	"github.com/k0kubun/pp"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -275,6 +276,8 @@ func (c *C) configNodes() {
 			c.log.Warnf("producer %s does not have producers associated", c.Mapped.Relays[i].Name)
 		}
 		c.Mapped.Relays[i].Producers = append(c.Mapped.Relays[i].Producers, c.Mapped.Relays[i].ExtProducer...)
+
+		c.Mapped.Relays[i].Relays = append(c.Mapped.Relays[i].Relays, c.Mapped.Relays[i].ExtRelays...)
 	}
 
 	for i := range c.Mapped.Producers {
@@ -322,4 +325,6 @@ func (c *C) configNodes() {
 				c.Mapped.Relays[i].Name)
 		}
 	}
+
+	pp.Print(c.Mapped.Relays)
 }
