@@ -325,6 +325,5 @@ func (c *C) configNodes() {
 				c.Mapped.Relays[i].Name)
 		}
 	}
-
-	pp.Print(c.Mapped.Relays)
+	c.log.Debug(pp.Print(c.Mapped.Relays))
 }

@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"github.com/adakailabs/gocnode/optimizer"
 	"github.com/adakailabs/gocnode/runner/node"
 	"github.com/adakailabs/gocnode/runner/prometheuscfg"
 	"github.com/adakailabs/gocnode/runner/rtview"
@@ -56,11 +57,11 @@ var startOptimizer = &cobra.Command{
 			conf.SetLogMinSeverity(logMinSeverity, id, isProducer)
 		}
 
-		r, err := node.NewOptimzer(conf, id, isProducer, passive)
+		r, err := optimizer.NewOptimizer(conf, id, isProducer)
 		if err != nil {
 			return err
 		}
-		return r.StartCnode()
+		return r.StartOptimizer()
 	},
 }
 
@@ -96,6 +97,7 @@ func init() {
 	rootCmd.AddCommand(startNodeCmd)
 	rootCmd.AddCommand(startPrometheus)
 	rootCmd.AddCommand(startRTView)
+	rootCmd.AddCommand(startOptimizer)
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

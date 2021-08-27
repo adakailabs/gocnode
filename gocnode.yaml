@@ -30,7 +30,7 @@ relays:
     era: shelley
     rtview_port: 6600
     test_mode: false
-    peers: 10
+    peers: 15
 #    ext_producer:
 #      - host: "rocinante.mooo.com"
 #        port: 3000
@@ -46,7 +46,7 @@ relays:
     network: "testnet"
     era: shelley
     rtview_port: 6601
-    peers: 10
+    peers: 15
 
   - pool: "rocinante"
     host: "rocinante.mooon.com"
@@ -54,4 +54,4 @@ relays:
     network: "testnet"
     port: 3002
     era: shelley
-    peers: 10
+    peers: 15

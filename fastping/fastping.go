@@ -15,7 +15,7 @@ func TestAddress(addr string) (avg time.Duration, packetLoss float64, err error)
 	}
 	pinger.Size = 128
 	pinger.SetNetwork("ip")
-	pinger.SetPrivileged(false)
+	pinger.SetPrivileged(true)
 	pinger.Count = 5
 	pinger.Timeout = time.Second * 2
 	err = pinger.Run() // Blocks until finished.
@@ -25,7 +25,7 @@ func TestAddress(addr string) (avg time.Duration, packetLoss float64, err error)
 	stats := pinger.Statistics() // get send/receive/duplicate/rtt stats
 
 	if stats.PacketLoss > 0 {
-		return 1000000, stats.PacketLoss, fmt.Errorf("packets lost: %f", stats.PacketLoss)
+		return 1000000, stats.PacketLoss, fmt.Errorf("packets lost: %f addr: %s", stats.PacketLoss, addr)
 	}
 
 	if stats.AvgRtt == time.Millisecond {

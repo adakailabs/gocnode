@@ -5,7 +5,7 @@ PACKAGE := ""
 
 tests: golang-ci .golangci.yaml
 	#golangci-lint run --fix --tests  -v 
-	#go test github.hpe.com/hpe-networking/${PACKAGE}/...
+	#go test github.hpe.com/hpe-nettest/${PACKAGE}/...
 
 GTAG=$(shell git describe --always)
 GVERSION=${VERSION}-${GTAG}
