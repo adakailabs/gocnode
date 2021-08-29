@@ -9,8 +9,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/adakailabs/gocnode/optimizer"
+
 	"github.com/adakailabs/gocnode/downloader"
-	"github.com/adakailabs/gocnode/nettest"
 
 	"github.com/adakailabs/gocnode/topologyfile"
 
@@ -154,84 +155,25 @@ func (d *Downloader) DownloadTopologyJSON(aNet string) (topologyfile.T, error) {
 	return top, nil
 }
 
-func (d *Downloader) GetTestNetRelays() (tp topologyfile.T, newProduces []topologyfile.Node, err error) {
-	tpf, err := topologyfile.New(d.conf)
-	if err != nil {
-		return tp, newProduces, err
-	}
-
-	tp, newProduces, err = tpf.GetTestNetRelays(d.conf)
-
-	return tp, newProduces, err
-}
-
 func (d *Downloader) TestNetRelays() (tp topologyfile.T, err error) {
-	var pingRelays topologyfile.NodeList
-	// var allLost NodeList
-	var netRelays topologyfile.NodeList
-	var conRelays topologyfile.NodeList
+	// var conRelays topologyfile.NodeList
+	// var allRelays topologyfile.NodeList
 
-	relaysMap := make(map[string]bool)
+	//relaysMap := make(map[string]bool)
 
-	tp, netRelays, err = d.GetTestNetRelays()
-	if err != nil {
-		return
-	}
+	opt, err := optimizer.NewOptimizer(d.conf, 0, true)
 
-	for i := range pingRelays {
-		netRelays[i].Valency = 1
-	}
+	tp.Producers, err = opt.GetRelays(15)
 
-	tn, err := nettest.New(d.conf)
-	if err != nil {
-		return tp, err
-	}
+	// _, allRelays, err = tpf.GetTestNetRelays(d.conf)
 
-	// allLost, pingRelays, err = d.TestLatencyWithPing(netRelays)
-	// if err != nil {
-	//	err = errors.Annotatef(err, "TestNetRelays:")
-	//	return tp, err
-	// }
-
-	// for i := range pingRelays {
-	// 	pingRelays[i].Valency = 1
-	// }
-
-	// for _, p := range pingRelays {
-	//	key := fmt.Sprintf("%s:%d", p.Addr, p.Port)
-	//	relaysMap[key] = true
-	// }
-
-	conRelays, err = tn.TestLatency(netRelays)
-
-	if err != nil {
-		return tp, err
-	}
-
-	//relays := pingRelays
-	relays := make(topologyfile.NodeList, 0)
-
-	for _, r := range conRelays {
-		key := fmt.Sprintf("%s:%d", r.Addr, r.Port)
-		_, ok := relaysMap[key]
-		if !ok {
-			d.log.Debugf("adding con relay: %s", r.Addr)
-			r.Valency = 1
-			relays = append(relays, r)
+	/*
+		if len(relays) > int(d.node.Peers) {
+			_.Producers = relays[0:d.node.Peers]
+		} else {
+			_.Producers = relays
 		}
-	}
-
-	relays, err = tn.SetValency(relays)
-	if err != nil {
-		d.log.Error(err.Error())
-		return topologyfile.T{}, err
-	}
-
-	if len(relays) > int(d.node.Peers) {
-		tp.Producers = relays[0:d.node.Peers]
-	} else {
-		tp.Producers = relays
-	}
+	*/
 
 	return tp, err
 }
@@ -307,7 +249,7 @@ func (d *Downloader) MainnetDownloadNodes() ([]topologyfile.Node, error) {
 	rand.Seed(time.Now().UnixNano()) // FIXME
 	const URI = "https://a.adapools.org/topology?geo=us&limit=50"
 	const tmpPath = "/tmp/testnet.json"
-	if err := d.DownloadFile(tmpPath, URI); err != nil {
+	if err := downloader.DownloadFile(tmpPath, URI); err != nil {
 		return nil, err
 	}
 

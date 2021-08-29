@@ -20,9 +20,9 @@ import (
 	"github.com/adakailabs/gocnode/config"
 )
 
-const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
+// const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
 
-//const cfgFile = "/home/galuisal/Documents/cardano/cardano-docker/cardano-node/gocnode/gocnode.yaml"
+const cfgFile = "/home/galuisal/Documents/cardano/cardano-docker/cardano-node/gocnode/gocnode.yaml"
 
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags

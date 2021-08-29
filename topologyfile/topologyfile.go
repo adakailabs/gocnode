@@ -45,7 +45,7 @@ func (ms NodeList) Swap(i, j int) {
 // -1, 0, 1 and reduce the number of calls for greater efficiency: an
 // exercise for the reader.
 func (ms NodeList) Less(i, j int) bool {
-	return ms[i].latency < ms[j].latency
+	return ms[i].Latency < ms[j].Latency
 }
 
 type Node struct {
@@ -54,13 +54,13 @@ type Node struct {
 	Port    uint   `json:"port"`
 	Valency uint   `json:"valency"`
 	Debug   string `json:"debug"`
-	latency time.Duration
+	Latency time.Duration
 }
 
 func (p *Node) SetLatency(la time.Duration) {
-	p.latency = la
+	p.Latency = la
 }
 
 func (p *Node) GetLatency() time.Duration {
-	return p.latency
+	return p.Latency
 }

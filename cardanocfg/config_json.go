@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/adakailabs/gocnode/downloader"
+
 	"github.com/juju/errors"
 
 	"github.com/tidwall/sjson"
@@ -193,7 +195,7 @@ func (d *Downloader) GetConfigJSON(aType string) (filePath string, err error) {
 	if url, err = d.GetURL(aType); err != nil {
 		return filePath, err
 	}
-	if er := d.DownloadFile(filePathTmp, url); er != nil {
+	if er := downloader.DownloadFile(filePathTmp, url); er != nil {
 		return filePath, er
 	}
 

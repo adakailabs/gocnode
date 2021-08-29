@@ -2,12 +2,12 @@ package cardanocfg
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/adakailabs/gocnode/downloader"
 
 	"github.com/adakailabs/gocnode/topologyfile"
 
@@ -183,10 +183,8 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 			err = errors.Annotatef(err, "getting path for: %s", filePath)
 			panic(err.Error())
 		}
-		err = d.DownloadFile(filePath, url)
-		if err != nil {
-			err = errors.Annotatef(err, "getting path for: %s", filePath)
-			panic(err.Error())
+		if er := downloader.DownloadFile(filePath, url); er != nil {
+			return er
 		}
 	}
 	jq := gojsonq.New().File(filePath)
@@ -205,37 +203,6 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 	}
 
 	d.Wg.Done()
-
-	return err
-}
-
-// DownloadFile will download a url to a local file. It's efficient because it will
-// write as it downloads and not load the whole file into memory.
-func (d *Downloader) DownloadFile(filePath, url string) error {
-	d.log.Info("downloading from URL: ", url)
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println(resp)
-		fmt.Println(err.Error())
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Create the file
-	d.log.Info("creatind dir: ", filepath.Dir(filePath))
-	if er := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); er != nil {
-		return er
-	}
-	out, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	d.log.Info("saved to file: ", filePath)
 
 	return err
 }
