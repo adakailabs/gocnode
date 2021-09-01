@@ -7,13 +7,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/adakailabs/gocnode/nettest/fastping"
+
 	"github.com/adakailabs/gocnode/nettest"
 
 	"github.com/adakailabs/gocnode/topologyfile"
 
 	"github.com/adakailabs/go-traceroute/traceroute"
 
-	"github.com/adakailabs/gocnode/fastping"
 	"github.com/k0kubun/pp"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestConfigTestnetOptimzerRoute(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
 	c, err := config.New(cfgFile, true, "Debug")
@@ -64,6 +66,7 @@ func TestConfigTestnetOptimzerRoute(t *testing.T) {
 }
 
 func TestConfigTestnetOptimzerPing(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
 	c, err := config.New(cfgFile, true, "Debug")
@@ -107,6 +110,7 @@ func TestConfigTestnetOptimzerPing(t *testing.T) {
 }
 
 func TestPinger(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 	pTime, _, err := fastping.TestAddress("www.google.com")
 
@@ -118,6 +122,7 @@ func TestPinger(t *testing.T) {
 }
 
 func TestTraceRouteGoogle(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	hosts, _ := net.LookupIP("195.154.69.26")
 	ip := hosts[0]
 	hops, err := traceroute.Trace(ip)

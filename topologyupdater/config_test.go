@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestConfig(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
@@ -38,6 +39,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestPing(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 	nodeID := 2
@@ -60,6 +62,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestGetBlock(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 

@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adakailabs/gocnode/nettest/fastping"
+
 	"github.com/adakailabs/go-traceroute/traceroute"
 
-	"github.com/adakailabs/gocnode/fastping"
 	"github.com/k0kubun/pp"
 
 	"github.com/adakailabs/gocnode/cardanocfg"
@@ -47,6 +48,7 @@ func TestConfig(t *testing.T) {
 }
 
 func TestConfigTopology(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
 	c, err := config.New(cfgFile, true, "Debug")
@@ -66,6 +68,7 @@ func TestConfigTopology(t *testing.T) {
 }
 
 func TestConfigTopologyProducer(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
 	c, err := config.New(cfgFile, true, "Debug")
@@ -84,6 +87,7 @@ func TestConfigTopologyProducer(t *testing.T) {
 }
 
 func TestConfigTestnetTopology(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
 	c, err := config.New(cfgFile, true, "Debug")
@@ -109,6 +113,7 @@ func TestConfigTestnetTopology(t *testing.T) {
 }
 
 func TestPinger(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 	pTime, _, err := fastping.TestAddress("www.google.com")
 
@@ -120,6 +125,7 @@ func TestPinger(t *testing.T) {
 }
 
 func TestConfigDownloadAndSetTopology(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
 	c, err := config.New(cfgFile, true, "Debug")
@@ -135,6 +141,7 @@ func TestConfigDownloadAndSetTopology(t *testing.T) {
 }
 
 func TestConfigMainnetTopology(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
 
@@ -151,6 +158,7 @@ func TestConfigMainnetTopology(t *testing.T) {
 }
 
 func TestTraceRouteGoogle(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
 	// a := assert.New(tr)
 	//hosts, _ := net.LookupIP("roci-master00.adakailabs.com")
 	//hosts, _ := net.LookupIP("92.249.148.171")

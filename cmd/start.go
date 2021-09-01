@@ -27,6 +27,7 @@ var id int
 var isProducer bool
 var passive bool
 var logMinSeverity string
+var isTestNet bool
 
 // startNodeCmd represents the start command
 var startNodeCmd = &cobra.Command{
@@ -57,7 +58,7 @@ var startOptimizer = &cobra.Command{
 			conf.SetLogMinSeverity(logMinSeverity, id, isProducer)
 		}
 
-		r, err := optimizer.NewOptimizer(conf, id, isProducer)
+		r, err := optimizer.NewOptimizer(conf, id, false, false)
 		if err != nil {
 			return err
 		}
@@ -102,7 +103,7 @@ func init() {
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-
+	startOptimizer.PersistentFlags().BoolVarP(&isTestNet, "is-testnet", "t", false, "optimizer loads testnet relays")
 	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
 	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
 	startNodeCmd.PersistentFlags().StringVarP(&logMinSeverity, "log-min-severity", "s", "", "sets the logging min severity")

@@ -6,9 +6,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adakailabs/gocnode/promquery"
+
+	"github.com/adakailabs/gocnode/topologyfile"
+
 	"github.com/k0kubun/pp"
 
-	"github.com/adakailabs/gocnode/cardanocfg"
 	"github.com/adakailabs/gocnode/config"
 	l "github.com/adakailabs/gocnode/logger"
 	"github.com/go-resty/resty/v2"
@@ -18,12 +21,12 @@ import (
 const APIURL = "https://api.clio.one/htopology/v1"
 
 type UpdaterGetNodes struct {
-	Resultcode string            `json:"resultcode"`
-	Datetime   string            `json:"datetime"`
-	ClientIP   string            `json:"clientIp"`
-	Iptype     uint              `json:"iptype"`
-	Msg        string            `json:"msg"`
-	Producers  []cardanocfg.Node `json:"producers"`
+	Resultcode string              `json:"resultcode"`
+	Datetime   string              `json:"datetime"`
+	ClientIP   string              `json:"clientIp"`
+	Iptype     uint                `json:"iptype"`
+	Msg        string              `json:"msg"`
+	Producers  []topologyfile.Node `json:"producers"`
 }
 
 type TU struct {
@@ -81,7 +84,7 @@ func (t *TU) GetCardanoBlock() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	p := PromResponse{}
+	p := promquery.PromResponse{}
 	err = json.Unmarshal(resp.Body(), &p)
 
 	for _, r := range p.Data.Result {

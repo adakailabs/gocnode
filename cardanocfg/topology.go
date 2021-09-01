@@ -15,10 +15,6 @@ import (
 
 	"github.com/adakailabs/gocnode/topologyfile"
 
-	"gonum.org/v1/gonum/stat"
-
-	"github.com/adakailabs/go-traceroute/traceroute"
-
 	"github.com/k0kubun/pp"
 
 	"github.com/prometheus/common/log"
@@ -156,24 +152,9 @@ func (d *Downloader) DownloadTopologyJSON(aNet string) (topologyfile.T, error) {
 }
 
 func (d *Downloader) TestNetRelays() (tp topologyfile.T, err error) {
-	// var conRelays topologyfile.NodeList
-	// var allRelays topologyfile.NodeList
-
-	//relaysMap := make(map[string]bool)
-
-	opt, err := optimizer.NewOptimizer(d.conf, 0, true)
+	opt, err := optimizer.NewOptimizer(d.conf, 0, false, true)
 
 	tp.Producers, err = opt.GetRelays(15)
-
-	// _, allRelays, err = tpf.GetTestNetRelays(d.conf)
-
-	/*
-		if len(relays) > int(d.node.Peers) {
-			_.Producers = relays[0:d.node.Peers]
-		} else {
-			_.Producers = relays
-		}
-	*/
 
 	return tp, err
 }
@@ -244,149 +225,3 @@ func (d *Downloader) MainNetRelays() (topologyfile.T, error) {
 
 	return topOthers, nil
 }
-
-func (d *Downloader) MainnetDownloadNodes() ([]topologyfile.Node, error) {
-	rand.Seed(time.Now().UnixNano()) // FIXME
-	const URI = "https://a.adapools.org/topology?geo=us&limit=50"
-	const tmpPath = "/tmp/testnet.json"
-	if err := downloader.DownloadFile(tmpPath, URI); err != nil {
-		return nil, err
-	}
-
-	topOthers := topologyfile.T{}
-	fBytesOthers, err := ioutil.ReadFile(tmpPath)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(fBytesOthers, &topOthers)
-	if err != nil {
-		return nil, err
-	}
-
-	newNodes := make([]topologyfile.Node, 0, len(topOthers.Producers))
-
-	for _, p := range topOthers.Producers {
-		found := false
-
-		for _, i := range d.node.Relays {
-			if i.Host == p.Addr {
-				found = true
-			}
-		}
-
-		if found {
-			continue
-		}
-		newNodes = append(newNodes, p)
-	}
-
-	rand.Shuffle(len(newNodes),
-		func(i, j int) {
-			newNodes[i],
-				newNodes[j] = newNodes[j],
-				newNodes[i]
-		})
-
-	return newNodes, nil
-}
-
-func (d *Downloader) latencyBaseadOnRoute(addr string) (time.Duration, error) {
-	delay := rand.Intn(15)
-	time.Sleep(time.Second * time.Duration(delay))
-	ip := net.ParseIP(addr)
-	d.log.Info("routing ip: ", ip, addr)
-	if ip == nil {
-		hosts, er := net.LookupIP(addr)
-		if er != nil {
-			d.log.Error(er.Error())
-			return time.Second * 2, er
-		}
-		ip = hosts[0]
-	}
-
-	d.log.Info("tracing ip: ", ip.String())
-
-	duration := time.Second * 2
-
-	const tries = 3
-
-	for i := 0; i < tries; i++ {
-		hops, err := traceroute.Trace(ip)
-		if err != nil {
-			return duration, err
-		}
-		if len(hops) > 3 {
-			nodes := hops[len(hops)-1].Nodes
-			if len(nodes) > 0 {
-				list := nodes[len(nodes)-1].RTT
-				listFloat := make([]float64, len(list))
-				for i, num := range list {
-					listFloat[i] = float64(num)
-				}
-				duration = time.Duration(stat.Mean(listFloat, nil))
-				stdDev := stat.StdDev(listFloat, nil)
-				if stdDev > 50*float64(time.Millisecond) {
-					duration = time.Second * 2
-					return duration, err
-				}
-				if duration < time.Millisecond*50 {
-					pp.Println(list)
-					pp.Println(hops)
-				}
-				return duration, err
-			} else {
-				d.log.Warnf("route nodes for IP: %v is 0", addr)
-			}
-		} else {
-			time.Sleep(time.Second)
-			d.log.Warnf("hops for IP: %v is 0, try: %d", ip.String(), i)
-		}
-	}
-	d.log.Errorf("hops for IP: %v is 0", addr)
-
-	return duration, nil
-}
-
-/*
-func (d *Downloader) MainNetGetNodes() error {
-	newProduces, err := d.MainnetDownloadNodes()
-	if err != nil {
-		err = errors.Annotatef(err, "downloading nodes")
-		return err
-	}
-
-	producersTmp := newProduces[0 : d.node.Peers*3]
-	nCount := 0
-	for _, p := range producersTmp {
-		now := time.Now()
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port))
-		if err != nil {
-			d.log.Errorf("%s: %s", p.Addr, err.Error())
-			if conn != nil {
-				conn.Close()
-			}
-		} else {
-			duration := time.Since(now)
-			conn.Close()
-			if duration.Milliseconds() < 300 {
-				d.log.Infof("relay is good: %s -- %d ms", p.Addr, duration.Milliseconds())
-				d.relaysStream <- p
-				nCount++
-				if nCount >= int(d.node.Peers) {
-					d.log.Info("breaking: ", d.node.Peers)
-					break
-				}
-			} else {
-				d.log.Warnf("duration too long: %d", duration.Milliseconds())
-			}
-		}
-	}
-
-	if nCount == 0 {
-		panic("no relays found")
-	}
-	d.log.Info("sending done")
-	d.relaysStreamDone <- 0
-	return nil
-}
-*/

@@ -9,6 +9,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/adakailabs/gocnode/nettest/fastping"
+
 	"github.com/go-redsync/redsync/v4"
 	"github.com/go-redsync/redsync/v4/redis/goredis/v8"
 
@@ -20,22 +22,25 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/adakailabs/gocnode/fastping"
-
 	"github.com/adakailabs/gocnode/config"
 	l "github.com/adakailabs/gocnode/logger"
 	"github.com/adakailabs/gocnode/runner/gen"
 	"github.com/go-redis/redis/v8"
 )
 
+const redismutexname = "cardano-mutex"
+
 type R struct {
 	gen.R
-	stop chan bool
-	wait chan error
+	isTestNet bool
+	stop      chan bool
+	wait      chan error
 }
 
-func NewOptimizer(conf *config.C, nodeID int, testMode bool) (r *R, err error) {
+func NewOptimizer(conf *config.C, nodeID int, testMode, isTestNet bool) (r *R, err error) {
+	rand2.Seed(time.Now().UnixNano()) // FIXME
 	r = &R{}
+	r.isTestNet = isTestNet
 	r.C = conf
 	r.stop = make(chan bool)
 	r.wait = make(chan error)
@@ -68,18 +73,11 @@ func (r *R) StartOptimizer() error {
 }
 
 func (r *R) Run() {
-	aTimer := time.NewTicker(time.Minute * 5)
+	aTimer := time.NewTicker(time.Minute * 60)
 	r.Log.Info("optimizer is running...")
 
 	// start redis client
 	r.RedisConnect()
-
-	/*
-		_, err := cardanocfg.New(&r.C.Relays[0], r.C)
-		if err != nil {
-			r.wait <- err
-			return
-		}*/
 
 	if er := r.check(); er != nil {
 		r.Log.Error(er.Error())
@@ -103,16 +101,30 @@ func (r *R) Run() {
 			return
 		}
 	}
-	return
+}
+
+func (r *R) routerIP() string {
+	const routerIP1 = "www.google.com"
+	const routerIP2 = "www.intel.com"
+	const routerIP3 = "www.hpe.com"
+	const routerIP4 = "www.apple.com"
+	const routerIP5 = "www.amazon.com"
+	const routerIP10 = "186.32.160.1"
+
+	rSlice := []string{
+		routerIP1, routerIP2, routerIP3, routerIP4, routerIP5,
+	}
+	i := rand2.Intn(len(rSlice) - 1)
+	return rSlice[i]
 }
 
 func (r *R) checkNetwork() error {
-	const routerIP = "186.32.160.1"
 	const iterations = 10
+	routerIP := r.routerIP()
 	var err error
 	for i := 0; i < iterations; i++ {
 		if pTime, packetLoss, er := fastping.TestAddress(routerIP); er == nil {
-			if pTime.Milliseconds() < 120 {
+			if pTime.Milliseconds() < 150 {
 				r.Log.Infof("network latency to google: %dms", pTime.Milliseconds())
 				if int(packetLoss) == 0 {
 					return nil
@@ -153,10 +165,23 @@ func (r *R) check() (err error) {
 		er = errors.Annotatef(er, "check()")
 		return er
 	}
-	_, dRelays, er := tpf.GetTestNetRelays(r.C)
-	if er != nil {
-		er = errors.Annotatef(er, "check()")
-		return er
+
+	// download topology list from IOHK
+	var dRelays []topologyfile.Node
+	var dEr error
+	if r.isTestNet {
+		_, dRelays, dEr = tpf.GetTestNetRelays(r.C)
+	} else {
+		_, dRelays, dEr = tpf.GetMainNetRelays(r.C)
+	}
+	if dEr != nil {
+		dEr = errors.Annotatef(dEr, "check()")
+		return dEr
+	}
+
+	if cer := r.CheckRedisRelays(dRelays); cer != nil {
+		cer = errors.Annotatef(cer, "check()")
+		return cer
 	}
 
 	tn, er := nettest.New(r.C)
@@ -178,6 +203,7 @@ func (r *R) check() (err error) {
 
 	for _, re := range relaysRouteTested {
 		if re.GetLatency() < time.Second*2 {
+			r.Log.Infof("route-test: adding IP to list of good nodes : %s", re.Addr)
 			goodRelays = append(goodRelays, re)
 		} else {
 			key := fmt.Sprintf("%s-%d", re.Addr, re.Port)
@@ -216,7 +242,6 @@ func (r *R) StartRedis() (closure func(), err error) {
 
 	// Obtain a new mutex by using the same name for all instances wanting the
 	// same lock.
-	redismutexname := "cardano-mutex"
 	mutex := rs.NewMutex(redismutexname)
 
 	// Obtain a lock for our given mutex. After this is successful, no one else
@@ -236,6 +261,35 @@ func (r *R) StartRedis() (closure func(), err error) {
 	}, err
 }
 
+func (r *R) CheckRedisRelays(relays topologyfile.NodeList) (err error) {
+	r.RedisConnect()
+	closure, err := r.StartRedis()
+	if err != nil {
+		return err
+	}
+	defer closure()
+
+	relaysKeys := make(map[string]bool)
+	for _, node := range relays {
+		relaysKeys[node.Addr] = true
+	}
+
+	keys := r.Rdc.Keys(r.Ctx, "*")
+
+	for _, key := range keys.Val() {
+		if key == redismutexname {
+			continue
+		}
+
+		if _, ok := relaysKeys[key]; !ok {
+			_ = r.Rdc.Del(r.Ctx, key)
+			r.Log.Warn("deleting missing key: ", key)
+		}
+	}
+
+	return err
+}
+
 func (r *R) GetRedisRelays() (relays topologyfile.NodeList, err error) {
 	r.RedisConnect()
 	closure, err := r.StartRedis()
@@ -244,24 +298,34 @@ func (r *R) GetRedisRelays() (relays topologyfile.NodeList, err error) {
 	}
 
 	defer closure()
-	keys := r.Rdc.Keys(r.Ctx, "*")
 
-	if len(keys.Val()) > 0 {
-		r.Log.Info(keys)
-	} else {
-		return relays, fmt.Errorf("no keys found in readis")
+	var keys *redis.StringSliceCmd
+	const retry = 100
+	for i := 0; i < retry; i++ {
+		keys = r.Rdc.Keys(r.Ctx, "*")
+		if len(keys.Val()) > 0 {
+			r.Log.Info(keys)
+			break
+		} else {
+			if i == retry-1 {
+				return relays, fmt.Errorf("no keys found in redis")
+			}
+			r.Log.Error("no keys found in DB, will retry in 10s")
+			time.Sleep(time.Second * 10)
+		}
 	}
 
+	keys = r.Rdc.Keys(r.Ctx, "*")
 	relays = make([]topologyfile.Node, 0, 10)
 	for _, key := range keys.Val() {
-		if key == "cardano-mutex" {
+		if key == redismutexname {
 			continue
 		}
 		relay := topologyfile.Node{}
 		val := r.Rdc.Get(r.Ctx, key)
-		resp, err := val.Bytes()
-		if err != nil {
-			return relays, err
+		resp, errVal := val.Bytes()
+		if errVal != nil {
+			return relays, errVal
 		}
 		r.Log.Info("key: ", key)
 
@@ -296,7 +360,7 @@ func (r *R) SetRedisRelays(relays topologyfile.NodeList) (err error) {
 			return err
 		}
 
-		r.Log.Infof("IP: %s --> %dms", re.Addr, re.GetLatency().Milliseconds())
+		r.Log.Infof("writing to redis IP: %s --> %dms", re.Addr, re.GetLatency().Milliseconds())
 
 		key := fmt.Sprintf("%s-%d", re.Addr, re.Port)
 
@@ -358,74 +422,6 @@ func (r *R) GetRelays(size int) (relays topologyfile.NodeList, err error) {
 	return bestRelays, err
 }
 
-func (r *R) DownloadRelays() (list topologyfile.NodeList, err error) {
-	var pingRelays topologyfile.NodeList
-	var allLost topologyfile.NodeList
-	var netRelays topologyfile.NodeList
-	var conRelays topologyfile.NodeList
-
-	relaysMap := make(map[string]bool)
-
-	top, err := topologyfile.New(r.C)
-	if err != nil {
-		return nil, err
-	}
-
-	_, netRelays, err = top.GetTestNetRelays(r.C)
-	if err != nil {
-		return
-	}
-
-	for i := range pingRelays {
-		netRelays[i].Valency = 1
-	}
-
-	nt, err := nettest.New(r.C)
-	if err != nil {
-		return nil, err
-	}
-
-	_, allLost, pingRelays, err = nt.TestLatencyWithPing(netRelays)
-	if err != nil {
-		err = errors.Annotatef(err, "TestNetRelays:")
-		return nil, err
-	}
-
-	for i := range pingRelays {
-		pingRelays[i].Valency = 1
-	}
-
-	for _, p := range pingRelays {
-		key := fmt.Sprintf("%s:%d", p.Addr, p.Port)
-		relaysMap[key] = true
-	}
-
-	conRelays, err = nt.TestLatency(allLost)
-	if err != nil {
-		return nil, err
-	}
-
-	relays := pingRelays
-
-	for _, rel := range conRelays {
-		key := fmt.Sprintf("%s:%d", rel.Addr, rel.Port)
-		_, ok := relaysMap[key]
-		if !ok {
-			r.Log.Debugf("adding con relay: %s", rel.Addr)
-			rel.Valency = 1
-			relays = append(relays, rel)
-		}
-	}
-
-	relays, err = nt.SetValency(relays)
-	if err != nil {
-		r.Log.Error(err.Error())
-		return nil, err
-	}
-
-	return relays, err
-}
-
 func encode(value interface{}) string {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -434,7 +430,7 @@ func encode(value interface{}) string {
 		panic(err)
 	}
 
-	return string(buf.Bytes())
+	return buf.String()
 }
 
 func decode(value []byte, result interface{}) error {

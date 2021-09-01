@@ -8,9 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adakailabs/gocnode/nettest/fastping"
+
 	"github.com/adakailabs/go-traceroute/traceroute"
 	"github.com/adakailabs/gocnode/config"
-	"github.com/adakailabs/gocnode/fastping"
 	l "github.com/adakailabs/gocnode/logger"
 	"github.com/adakailabs/gocnode/topologyfile"
 	"github.com/juju/errors"
@@ -56,12 +57,12 @@ func (t *Tpf) TestLatencyWithPing(newProduces topologyfile.NodeList) (partialLos
 		if err != nil {
 			if packetLoss == 100 {
 				mu.Lock()
-				t.log.Warn("all packets lost for: ", p.Addr)
+				// t.log.Warn("all packets lost for: ", p.Addr)
 				allLostPackets = append(allLostPackets, p)
 				mu.Unlock()
 				err = nil
 			} else if packetLoss > 0 {
-				t.log.Warn("some packets losts for: ", p.Addr)
+				// t.log.Warn("some packets losts for: ", p.Addr)
 				mu.Lock()
 				partialLost = append(partialLost, p)
 				mu.Unlock()
@@ -69,7 +70,7 @@ func (t *Tpf) TestLatencyWithPing(newProduces topologyfile.NodeList) (partialLos
 			}
 		} else {
 			p.SetLatency(duration)
-			t.log.Infof("adding IP to list of good nodes: %s", p.Addr)
+			t.log.Infof(" ping-tested:adding IP to list of good nodes: %s", p.Addr)
 			nodeChan <- p
 		}
 	}
@@ -85,6 +86,8 @@ func (t *Tpf) TestLatencyWithPing(newProduces topologyfile.NodeList) (partialLos
 		case <-c.C:
 			if err != nil {
 				err = errors.Annotatef(err, "test timeout && error: %s", err.Error())
+				t.log.Errorf(err.Error())
+				err = nil
 			}
 			sort.Sort(finalProducers)
 			return partialLost, allLostPackets, finalProducers, err
@@ -115,7 +118,7 @@ func (t *Tpf) TestLatency(newProduces topologyfile.NodeList) (finalProducers top
 		p.SetLatency(time.Second)
 		var conn net.Conn
 		var er error
-		t.log.Info("testing relay: ", p.Addr)
+		// t.log.Info("testing relay: ", p.Addr)
 		if conn, er = net.Dial("tcp", fmt.Sprintf("%s:%d", p.Addr, p.Port)); er != nil {
 			t.log.Errorf("%s: %s", p.Addr, er.Error())
 			return
@@ -127,11 +130,9 @@ func (t *Tpf) TestLatency(newProduces topologyfile.NodeList) (finalProducers top
 			t.log.Errorf(er.Error())
 			return
 		}
-		t.log.Debugf("XX IP: %s --> %dms", p.Addr, duration.Milliseconds())
 		p.SetLatency(duration)
 		if !done {
 			nodeChan <- p
-			t.log.Debugf("relay %s latency: %v", p.Addr, duration)
 		}
 	}
 
@@ -164,7 +165,7 @@ func (t *Tpf) latencyBaseadOnRoute(addr string) (time.Duration, error) {
 	delay := rand.Intn(15)
 	time.Sleep(time.Second * time.Duration(delay))
 	ip := net.ParseIP(addr)
-	t.log.Info("routing ip: ", ip, addr)
+	// t.log.Info("routing ip: ", ip, addr)
 	if ip == nil {
 		hosts, er := net.LookupIP(addr)
 		if er != nil {
@@ -173,8 +174,6 @@ func (t *Tpf) latencyBaseadOnRoute(addr string) (time.Duration, error) {
 		}
 		ip = hosts[0]
 	}
-
-	t.log.Info("tracing ip: ", ip.String())
 
 	duration := time.Second * 2
 
@@ -208,7 +207,7 @@ func (t *Tpf) latencyBaseadOnRoute(addr string) (time.Duration, error) {
 			t.log.Warnf("route nodes for IP: %v is 0", addr)
 		} else {
 			time.Sleep(time.Second)
-			t.log.Warnf("hops for IP: %v is 0, try: %d", ip.String(), i)
+			// t.log.Warnf("hops for IP: %v is 0, try: %d", ip.String(), i)
 		}
 	}
 	t.log.Errorf("hops for IP: %v is 0", addr)

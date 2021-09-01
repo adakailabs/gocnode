@@ -14,8 +14,6 @@ import (
 	"github.com/adakailabs/gocnode/config"
 )
 
-//const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/cardano-docker/cardano-node/gocnode/gocnode.yaml"
-
 const cfgFile = "/home/galuisal/Documents/cardano/cardano-docker/cardano-node/gocnode/gocnode.yaml"
 
 func TestMain(m *testing.M) {
@@ -37,7 +35,7 @@ func TestConfigTestnetTopologyOptim(t *testing.T) {
 	}
 }
 
-func TestOptimRedis(t *testing.T) {
+func TestOptimRedisTestNet(t *testing.T) {
 	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
@@ -47,27 +45,29 @@ func TestOptimRedis(t *testing.T) {
 		t.FailNow()
 	}
 
-	opt, err := optimizer.NewOptimizer(c, 0, true)
+	opt, err := optimizer.NewOptimizer(c, 0, true, true)
 	if !a.Nil(err) {
 		t.FailNow()
 	}
 
 	go opt.Run()
-	end := make(chan bool)
+	end := make(chan error)
 	go func() {
-		err := <-opt.Wait()
-		if err != nil {
-			t.Error(err.Error())
-			t.FailNow()
+		errEnd := <-opt.Wait()
+		if errEnd != nil {
+			end <- errEnd
 		}
 		close(end)
 	}()
 	time.Sleep(time.Minute * 10)
 	opt.Stop()
-	<-end
+	if errEnd := <-end; errEnd != nil {
+		t.Error(err.Error())
+		t.FailNow()
+	}
 }
 
-func TestOptimRedisGet(t *testing.T) {
+func TestOptimRedisMainNet(t *testing.T) {
 	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
 
@@ -77,7 +77,40 @@ func TestOptimRedisGet(t *testing.T) {
 		t.FailNow()
 	}
 
-	opt, err := optimizer.NewOptimizer(c, 0, true)
+	opt, err := optimizer.NewOptimizer(c, 0, true, false)
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	go opt.Run()
+	end := make(chan error)
+	go func() {
+		errEnd := <-opt.Wait()
+		if errEnd != nil {
+			end <- errEnd
+		}
+		close(end)
+	}()
+	time.Sleep(time.Minute * 10)
+	opt.Stop()
+	if errEnd := <-end; errEnd != nil {
+		t.Error(err.Error())
+		t.FailNow()
+	}
+}
+
+func TestOptimRedisGet(t *testing.T) {
+	const relaysNum = 15
+	defer os.RemoveAll("/tmp/logs")
+	a := assert.New(t)
+
+	c, err := config.New(cfgFile, true, "Debug")
+	if !a.Nil(err) {
+		t.Error(err.Error())
+		t.FailNow()
+	}
+
+	opt, err := optimizer.NewOptimizer(c, 0, true, false)
 	if !a.Nil(err) {
 		t.FailNow()
 	}
@@ -86,10 +119,12 @@ func TestOptimRedisGet(t *testing.T) {
 
 	if err != nil {
 		a.Nil(err)
+		t.Error(err.Error())
 		t.FailNow()
 	}
 
-	if len(relays) < 10 {
+	if len(relays) < relaysNum {
+		t.Error("too few relays")
 		t.FailNow()
 	}
 
@@ -119,6 +154,6 @@ func TestOptimRedisGet(t *testing.T) {
 	}
 
 	for _, relay := range relays {
-		t.Log(relay.GetLatency())
+		t.Log("XX", relay.GetLatency())
 	}
 }

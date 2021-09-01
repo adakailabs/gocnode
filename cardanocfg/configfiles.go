@@ -195,10 +195,10 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 		d.ShelleyGenesis = filePath
 	}
 	if aType == ByronGenesis {
-		d.ShelleyGenesis = filePath
+		d.ByronGenesis = filePath
 	}
 	if aType == AlonzoGenesis {
-		//d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		// d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
 		d.AlonzoGenesis = filePath
 	}
 
