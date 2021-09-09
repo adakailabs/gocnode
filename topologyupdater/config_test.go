@@ -46,7 +46,7 @@ func TestPing(t *testing.T) {
 	c, err := config.New(cfgFile, true, "debug")
 	a.Nil(err)
 
-	d, err2 := cardanocfg.New(&c.Relays[nodeID], c)
+	d, err2 := cardanocfg.New(c, &c.Relays[nodeID], false)
 	a.Nil(err2)
 
 	_, _, _, _, _ = d.DownloadConfigFiles()

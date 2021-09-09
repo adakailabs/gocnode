@@ -43,7 +43,7 @@ func TestConfigTestnetOptimzerRoute(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, nodeList, err := tp.GetTestNetRelays(c)
+	_, nodeList, err := tp.GetOnlineRelays(c, true)
 	if !a.Nil(err) {
 		t.FailNow()
 	}
@@ -79,7 +79,7 @@ func TestConfigTestnetOptimzerPing(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, nodeList, err := tp.GetTestNetRelays(c)
+	_, nodeList, err := tp.GetOnlineRelays(c, true)
 	if !a.Nil(err) {
 		t.FailNow()
 	}
@@ -106,6 +106,41 @@ func TestConfigTestnetOptimzerPing(t *testing.T) {
 
 	for _, p := range relays {
 		t.Logf("relay: %v --> %v \n", p.Addr, p.GetLatency().Milliseconds())
+	}
+}
+
+func TestConfigTestnetTestTcpDial(t *testing.T) {
+	defer os.RemoveAll("/tmp/logs")
+	a := assert.New(t)
+
+	c, err := config.New(cfgFile, true, "Debug")
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	tp, err := topologyfile.New(c)
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	_, nodeList, err := tp.GetOnlineRelays(c, true)
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	tn, err := nettest.New(c)
+	if !a.Nil(err) {
+		t.FailNow()
+	}
+
+	goodRelays, badRelays, err := tn.TestTCPDial(nodeList)
+
+	for _, p := range badRelays {
+		t.Logf("bad  relay: %v --> %v \n", p.Addr, p.GetLatency().Milliseconds())
+	}
+	t.Log("###################################################3")
+	for _, p := range goodRelays {
+		t.Logf("good relay: %v --> %v \n", p.Addr, p.GetLatency().Milliseconds())
 	}
 }
 

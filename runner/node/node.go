@@ -104,7 +104,7 @@ func (r *R) newArgs() (cnodeArgs, error) {
 
 	r.Log.Info("db path: ", r.cnargs.DatabasePath)
 
-	d, err := cardanocfg.New(r.NodeC, r.C)
+	d, err := cardanocfg.New(r.C, r.NodeC, false)
 	if err != nil {
 		return r.cnargs, err
 	}
@@ -166,7 +166,41 @@ func (r *R) setCheckDBPath() error {
 func (r *R) setCMD0Args() {
 	r.Cmd0Args = append(r.Cmd0Args,
 		"+RTS",
-		"-N",
+
+		//tells the RTS to dispatch the
+		// programs threads on 2 cpus
+		// (using -N without a number will make it use all the CPUs available)
+		"-N2",
+
+		// tells the RTS to use a different and less optimized way
+		// to release memory so that GNU/Linux performance tools such
+		// as top and htop report the correct amount of resident memory
+		//being used (mostly useless as explained above)
+		"--disable-delayed-os-memory-return",
+
+		// tells the RTS to perform a major GC if the node has been idle for 0.3s
+		"-I0.3",
+
+		// tells the RTS to perform the above major GC only if the last one happened more than 10 minutes ago.
+		"-Iw600",
+
+		// is the size of the new block allocated in the hot zone,
+		// it should be adapted according to the number of cpu you configured with the -N parameter
+		"-A16m",
+
+		// roughly tells the RTS to keep allocated 1.5
+		// times more than the amount of live data it found when it started its last major GC.
+		"-F1.5",
+
+		// forces the RTS to allocate 2.5GB of RAM at startup and keep this minimum allocated.
+		// (the node’s live data is usually around 2GB, so this seems appropriate)
+		"-H2500M",
+
+		// makes the RTS statistics available programmatically.
+		"-T",
+
+		// makes the node print various garbage collection statistics on the standard error output
+		// "-S",
 		"-RTS",
 		r.cnargs.DatabasePathS,
 		r.cnargs.DatabasePath,

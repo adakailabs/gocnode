@@ -48,6 +48,12 @@ func NewOptimizer(conf *config.C, nodeID int, testMode, isTestNet bool) (r *R, e
 	if r.Log, err = l.NewLogConfig(conf, "optimizer"); err != nil {
 		return r, err
 	}
+	if isTestNet {
+		r.Log.Info("********** RUNNING TESTNET MODE ********")
+	} else {
+		r.Log.Info("********** RUNNING MAINNET MODE ********")
+	}
+
 	r.P.Log = r.Log
 	r.RedisHost = "redis"
 
@@ -73,7 +79,7 @@ func (r *R) StartOptimizer() error {
 }
 
 func (r *R) Run() {
-	aTimer := time.NewTicker(time.Minute * 60)
+	aTimer := time.NewTicker(time.Minute * 60 * 6)
 	r.Log.Info("optimizer is running...")
 
 	// start redis client
@@ -120,17 +126,18 @@ func (r *R) routerIP() string {
 
 func (r *R) checkNetwork() error {
 	const iterations = 10
-	routerIP := r.routerIP()
+
 	var err error
 	for i := 0; i < iterations; i++ {
+		routerIP := r.routerIP()
 		if pTime, packetLoss, er := fastping.TestAddress(routerIP); er == nil {
-			if pTime.Milliseconds() < 150 {
-				r.Log.Infof("network latency to google: %dms", pTime.Milliseconds())
+			if pTime.Milliseconds() < 300 {
+				r.Log.Infof("network latency to %s: %dms", routerIP, pTime.Milliseconds())
 				if int(packetLoss) == 0 {
 					return nil
 				}
 			} else {
-				er = fmt.Errorf("network latency to google is: %d", pTime.Milliseconds())
+				er = fmt.Errorf("network latency to %s is: %d", routerIP, pTime.Milliseconds())
 				r.Log.Warn(er.Error())
 			}
 
@@ -147,8 +154,7 @@ func (r *R) checkNetwork() error {
 	return err
 }
 
-func (r *R) check() (err error) {
-	// check we are online:
+func (r *R) onlineCheck() {
 	for r.Running {
 		if er := r.checkNetwork(); er != nil {
 			er = errors.Annotate(er, "network check failed")
@@ -159,26 +165,36 @@ func (r *R) check() (err error) {
 		}
 		time.Sleep(time.Second * 5)
 	}
+}
 
+func (r *R) downloadRelays() (dRelays []topologyfile.Node, err error) {
 	tpf, er := topologyfile.New(r.C)
 	if er != nil {
-		er = errors.Annotatef(er, "check()")
-		return er
+		er = errors.Annotatef(er, "downloadRelays, new topology")
+		return dRelays, er
 	}
 
 	// download topology list from IOHK
-	var dRelays []topologyfile.Node
-	var dEr error
-	if r.isTestNet {
-		_, dRelays, dEr = tpf.GetTestNetRelays(r.C)
-	} else {
-		_, dRelays, dEr = tpf.GetMainNetRelays(r.C)
-	}
+	_, dRelays, dEr := tpf.GetOnlineRelays(r.C, r.isTestNet)
 	if dEr != nil {
-		dEr = errors.Annotatef(dEr, "check()")
-		return dEr
+		dEr = errors.Annotatef(dEr, "downloadRelays, GetOnlineRelays")
+		return dRelays, dEr
 	}
 
+	return dRelays, err
+}
+
+func (r *R) check() (err error) {
+	// check we are online:
+	r.onlineCheck()
+
+	dRelays, er1 := r.downloadRelays()
+	if er1 != nil {
+		er1 = errors.Annotatef(er1, "check()")
+		return err
+	}
+
+	// check already existing data in db.  Clean if necessary
 	if cer := r.CheckRedisRelays(dRelays); cer != nil {
 		cer = errors.Annotatef(cer, "check()")
 		return cer
@@ -186,32 +202,53 @@ func (r *R) check() (err error) {
 
 	tn, er := nettest.New(r.C)
 	if er != nil {
-		er = errors.Annotatef(er, "check()")
+		er = errors.Annotatef(er, "check() nettest")
 		return er
 	}
 
-	partialLost, allLost, goodRelays, err := tn.TestLatencyWithPing(dRelays)
+	pingPartialLost, pingAllLost, goodRelays, err := tn.TestLatencyWithPing(dRelays)
 	if err != nil {
 		err = errors.Annotatef(err, "check() --> TestLatencyWithPing")
 		return err
 	}
-	relaysRouteTested, err := tn.TestLatency(allLost)
+
+	relaysRouteTested, err := tn.TestLatency(pingAllLost)
 	if err != nil {
 		err = errors.Annotatef(err, "check() --> TestLatency")
 		return err
 	}
 
+	relaysToRetest := make(topologyfile.NodeList, 0, 1000)
 	for _, re := range relaysRouteTested {
 		if re.GetLatency() < time.Second*2 {
 			r.Log.Infof("route-test: adding IP to list of good nodes : %s", re.Addr)
 			goodRelays = append(goodRelays, re)
 		} else {
+			relaysToRetest = append(relaysToRetest, re)
+		}
+	}
+
+	retestGoodRelays, retestBadRelays, err := tn.TestTCPDial(relaysToRetest)
+	if err != nil {
+		r.Log.Error(err.Error())
+	}
+
+	if len(goodRelays) == 0 {
+		r.Log.Error("no relays to write to db, so will do nothing")
+		return nil
+	}
+
+	for _, re := range retestBadRelays {
+		if re.GetLatency() >= time.Second*2 {
 			key := fmt.Sprintf("%s-%d", re.Addr, re.Port)
 			if er2 := r.Rdc.Del(r.Ctx, key).Err(); er2 != nil {
 				r.Log.Info("del: ", er2)
 			}
+			pingAllLost = append(pingAllLost, re)
 		}
 	}
+
+	goodRelays = append(goodRelays, retestGoodRelays...)
 
 	goodRelays, err = tn.SetValency(goodRelays)
 	if err != nil {
@@ -223,7 +260,7 @@ func (r *R) check() (err error) {
 		return er
 	}
 
-	for _, re := range partialLost {
+	for _, re := range pingPartialLost {
 		key := fmt.Sprintf("%s-%d", re.Addr, re.Port)
 		if er2 := r.Rdc.Del(r.Ctx, key).Err(); er2 != nil {
 			r.Log.Info("del: ", er2)
@@ -263,15 +300,10 @@ func (r *R) StartRedis() (closure func(), err error) {
 
 func (r *R) CheckRedisRelays(relays topologyfile.NodeList) (err error) {
 	r.RedisConnect()
-	closure, err := r.StartRedis()
-	if err != nil {
-		return err
-	}
-	defer closure()
-
 	relaysKeys := make(map[string]bool)
 	for _, node := range relays {
-		relaysKeys[node.Addr] = true
+		key := fmt.Sprintf("%s-%d", node.Addr, node.Port)
+		relaysKeys[key] = true
 	}
 
 	keys := r.Rdc.Keys(r.Ctx, "*")
@@ -292,26 +324,32 @@ func (r *R) CheckRedisRelays(relays topologyfile.NodeList) (err error) {
 
 func (r *R) GetRedisRelays() (relays topologyfile.NodeList, err error) {
 	r.RedisConnect()
-	closure, err := r.StartRedis()
-	if err != nil {
-		return relays, err
-	}
 
-	defer closure()
+	/*
+		closure, err := r.StartRedis()
+		if err != nil {
+			err = errors.Annotatef(err, "GetRedisRelays -> ")
+			return relays, err
+		}
+
+	*/
 
 	var keys *redis.StringSliceCmd
 	const retry = 100
 	for i := 0; i < retry; i++ {
 		keys = r.Rdc.Keys(r.Ctx, "*")
 		if len(keys.Val()) > 0 {
+			if len(keys.Val()) < 200 {
+				time.Sleep(time.Second * 20)
+			}
 			r.Log.Info(keys)
 			break
 		} else {
 			if i == retry-1 {
 				return relays, fmt.Errorf("no keys found in redis")
 			}
-			r.Log.Error("no keys found in DB, will retry in 10s")
-			time.Sleep(time.Second * 10)
+			r.Log.Error("no keys found in DB, will retry in 20s")
+			time.Sleep(time.Second * 20)
 		}
 	}
 
@@ -344,13 +382,6 @@ func (r *R) GetRedisRelays() (relays topologyfile.NodeList, err error) {
 }
 
 func (r *R) SetRedisRelays(relays topologyfile.NodeList) (err error) {
-	closure, err := r.StartRedis()
-	if err != nil {
-		return err
-	}
-
-	defer closure()
-
 	var relaysBuffer bytes.Buffer // Stand-in for the relaysBuffer.
 	for _, re := range relays {
 		enc := gob.NewEncoder(&relaysBuffer)
@@ -392,12 +423,16 @@ func (r *R) GetBestAndRandom(bestSize, randSize int) (bestRelays, randRelays top
 	}
 
 	if (bestSize + randSize) > len(relays) {
-		err = fmt.Errorf("bestSize + randSize is greater than the total number of relays found in database")
-		return bestRelays, randRelays, err
+		if len(relays) == 0 {
+			err = fmt.Errorf("bestSize + randSize is greater than the total number of relays found in database: %d", len(relays))
+			return bestRelays, randRelays, err
+		}
+		r.Log.Warn("bestSize + randSize is greater than the total number of relays found in database: ", len(relays))
+		bestSize = len(relays) / 2
+		randSize = len(relays) - bestSize
 	}
 
 	bestRelays = relays[0:bestSize]
-
 	srelays := relays[bestSize:]
 
 	rand2.Seed(time.Now().UnixNano())

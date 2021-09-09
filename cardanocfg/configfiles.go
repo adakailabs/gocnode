@@ -41,9 +41,10 @@ type Downloader struct {
 	ShelleyGenesis   string
 	AlonzoGenesis    string
 	ByronGenesis     string
+	enableRtView     bool
 }
 
-func New(n *config.Node, c *config.C) (*Downloader, error) {
+func New(c *config.C, n *config.Node, enableRTView bool) (*Downloader, error) {
 	var err error
 	d := &Downloader{}
 	d.Wg = &sync.WaitGroup{}
@@ -54,7 +55,7 @@ func New(n *config.Node, c *config.C) (*Downloader, error) {
 	if d.log, err = l.NewLogConfig(c, "config"); err != nil {
 		return d, err
 	}
-
+	d.enableRtView = enableRTView
 	return d, nil
 }
 
@@ -158,14 +159,17 @@ func (d *Downloader) GetConfigFile(aType string) {
 		}
 	case ShelleyGenesis:
 		if er := d.DownloadGenesis(recent, filePath, aType); err != nil {
+			d.log.Errorf(er.Error())
 			panic(er.Error())
 		}
 	case AlonzoGenesis:
 		if er := d.DownloadGenesis(recent, filePath, aType); err != nil {
+			d.log.Errorf(er.Error())
 			panic(er.Error())
 		}
 	case TopologyJSON:
 		if er := d.DownloadAndSetTopologyFile(); er != nil {
+			d.log.Errorf(er.Error())
 			panic(er.Error())
 		}
 		d.TopologyJSON = filePath
@@ -180,13 +184,29 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 	if !recent {
 		var url string
 		if url, err = d.GetURL(aType); err != nil {
+			d.log.Errorf(err.Error())
 			err = errors.Annotatef(err, "getting path for: %s", filePath)
 			panic(err.Error())
 		}
-		if er := downloader.DownloadFile(filePath, url); er != nil {
-			return er
+
+		const retries = 10
+
+		for i := 0; i < retries; i++ {
+			if er := downloader.DownloadFile(filePath, url); er != nil {
+				if i == retries-1 {
+					d.log.Errorf(er.Error())
+					err = errors.Annotatef(er, "downloading file: %s", aType)
+					return er
+				} else {
+					d.log.Errorf("error while downloading %s, %s", filePath, er.Error())
+					time.Sleep(time.Second)
+				}
+			} else {
+				break
+			}
 		}
 	}
+
 	jq := gojsonq.New().File(filePath)
 
 	d.log.Infof("node %s network magic: %d", d.node.Name, d.node.NetworkMagic)

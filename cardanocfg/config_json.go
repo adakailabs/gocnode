@@ -30,6 +30,14 @@ var cardanoBlocks = []string{
 	"cardano.node.Mux",
 }
 
+func mapBackEndSet(key string, enableRTView bool, mapBackEnd map[string]interface{}, secondTracer string) {
+	if enableRTView {
+		mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
+	} else {
+		mapBackEnd[key] = []string{"EKGViewBK"}
+	}
+}
+
 func (d *Downloader) ConfigureBlocks(jsonB []byte) ([]byte, error) {
 	var err error
 	mapBackEnd := make(map[string]interface{})
@@ -37,11 +45,11 @@ func (d *Downloader) ConfigureBlocks(jsonB []byte) ([]byte, error) {
 	for _, key := range cardanoBlocks {
 		switch key {
 		case "cardano.node.metrics":
-			mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
+			mapBackEndSet(key, d.enableRtView, mapBackEnd, "EKGViewBK")
 		case "cardano.node.resources":
-			mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
+			mapBackEndSet(key, d.enableRtView, mapBackEnd, "EKGViewBK")
 		case "cardano.node.IpSubscription":
-			mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+			mapBackEndSet(key, d.enableRtView, mapBackEnd, "KatipBK")
 		// FIXME:
 		// case "cardano.node.Handshake":
 		// mapBackEnd[key] = []string{"TraceForwarderBK"}
@@ -118,14 +126,16 @@ func (d *Downloader) SetMapSubtraceContents(jsonB []byte) ([]byte, error) {
 
 func (d *Downloader) SetTraceForwardTo(newJSON []byte) ([]byte, error) {
 	var err error
-	traceForwardToMap := make(map[string]interface{})
-	contents := []string{"monitor", fmt.Sprintf("%d", d.node.RtViewPort)}
+	if d.enableRtView {
+		traceForwardToMap := make(map[string]interface{})
+		contents := []string{"monitor", fmt.Sprintf("%d", d.node.RtViewPort)}
 
-	traceForwardToMap["tag"] = "RemoteSocket"
-	traceForwardToMap["contents"] = contents
+		traceForwardToMap["tag"] = "RemoteSocket"
+		traceForwardToMap["contents"] = contents
 
-	if newJSON, err = sjson.SetBytes(newJSON, "traceForwardTo", traceForwardToMap); err != nil {
-		return newJSON, err
+		if newJSON, err = sjson.SetBytes(newJSON, "traceForwardTo", traceForwardToMap); err != nil {
+			return newJSON, err
+		}
 	}
 	return newJSON, err
 }
@@ -137,7 +147,6 @@ func (d *Downloader) SetTraceMempool(newJSON []byte) ([]byte, error) {
 	if d.node.IsProducer {
 		traceMempool = true
 	}
-
 	if newJSON, err = sjson.SetBytes(newJSON, "TraceMempool", traceMempool); err != nil {
 		return newJSON, err
 	}

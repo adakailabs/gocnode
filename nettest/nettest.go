@@ -28,10 +28,39 @@ func New(c *config.C) (*Tpf, error) {
 	var err error
 	d := &Tpf{}
 	if d.log, err = l.NewLogConfig(c, "nettest"); err != nil {
+		err = errors.Annotatef(err, "new nettest, creating log instance")
 		return d, err
 	}
 
 	return d, nil
+}
+
+func (t *Tpf) TestTCPDial(relays []topologyfile.Node) (goods, bads topologyfile.NodeList, err error) {
+	goods = make(topologyfile.NodeList, 0, 100)
+	bads = make(topologyfile.NodeList, 0, 100)
+
+	for _, relay := range relays {
+		servAddr := fmt.Sprintf("%s:%d", relay.Addr, relay.Port)
+		tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
+		if err != nil {
+			t.log.Errorf("eesolveTCPAddr failed: %s", err.Error())
+			bads = append(bads, relay)
+			continue
+		}
+		now := time.Now()
+		d := net.Dialer{Timeout: time.Second}
+		conn, err := d.Dial("tcp", servAddr)
+		if err != nil {
+			t.log.Errorf("addr: %s", tcpAddr)
+			bads = append(bads, relay)
+			continue
+		}
+		relay.SetLatency(time.Since(now) + time.Second*3)
+		t.log.Infof("good: %s latency: %d", tcpAddr, relay.GetLatency().Milliseconds())
+		goods = append(goods, relay)
+		conn.Close()
+	}
+	return goods, bads, err
 }
 
 func (t *Tpf) TestLatencyWithPing(newProduces topologyfile.NodeList) (partialLost,
@@ -111,7 +140,6 @@ func (t *Tpf) TestLatency(newProduces topologyfile.NodeList) (finalProducers top
 		})
 
 	nodeChan := make(chan topologyfile.Node)
-	defer close(nodeChan)
 	done := false
 
 	testNode := func(p topologyfile.Node) {

@@ -29,7 +29,7 @@ func TestConfigTestnetTopologyOptim(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err2 := cardanocfg.New(&c.Relays[0], c)
+	_, err2 := cardanocfg.New(c, &c.Relays[0], false)
 	if !a.Nil(err2) {
 		t.FailNow()
 	}

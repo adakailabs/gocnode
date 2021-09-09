@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/CrowdSurge/banner v0.0.0-20140923200336-8c0e79dc5ff7
 	github.com/adakailabs/go-traceroute v0.0.0-20210727014431-97524352ab91
+	github.com/aeden/traceroute v0.0.0-20210211061815-03f5f7cb7908 // indirect
 	github.com/go-ping/ping v0.0.0-20210506233800-ff8be3320020
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/go-redsync/redsync/v4 v4.3.0

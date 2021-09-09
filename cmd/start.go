@@ -58,7 +58,7 @@ var startOptimizer = &cobra.Command{
 			conf.SetLogMinSeverity(logMinSeverity, id, isProducer)
 		}
 
-		r, err := optimizer.NewOptimizer(conf, id, false, false)
+		r, err := optimizer.NewOptimizer(conf, id, false, isTestNet)
 		if err != nil {
 			return err
 		}
