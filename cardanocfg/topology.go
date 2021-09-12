@@ -130,6 +130,9 @@ func (d *Downloader) DownloadTopologyJSON(aNet string) (topologyfile.T, error) {
 	url := fmt.Sprintf("%s/%s-%s", URI, aNet, TopologyJSON)
 
 	err = downloader.DownloadFile(filePathTmpTop, url)
+	if err != nil {
+		return topologyfile.T{}, err
+	}
 
 	top := topologyfile.T{}
 
@@ -149,8 +152,9 @@ func (d *Downloader) DownloadTopologyJSON(aNet string) (topologyfile.T, error) {
 
 func (d *Downloader) GetRelaysFromRedis(isTestnet, testMode bool) (tp topologyfile.T, err error) {
 	opt, err := optimizer.NewOptimizer(d.conf, 0, testMode, isTestnet)
-
+	if err != nil {
+		return tp, err
+	}
 	tp.Producers, err = opt.GetRelays(15)
-
 	return tp, err
 }

@@ -189,18 +189,18 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 			panic(err.Error())
 		}
 
-		const retries = 10
+		const retries = 20
 
 		for i := 0; i < retries; i++ {
 			if er := downloader.DownloadFile(filePath, url); er != nil {
 				if i == retries-1 {
 					d.log.Errorf(er.Error())
-					err = errors.Annotatef(er, "downloading file: %s", aType)
+					er = errors.Annotatef(er, "downloading file: %s", aType)
 					return er
-				} else {
-					d.log.Errorf("error while downloading %s, %s", filePath, er.Error())
-					time.Sleep(time.Second)
 				}
+				d.log.Errorf("error while downloading %s, %s", filePath, er.Error())
+				time.Sleep(time.Second * 2)
+				d.log.Warnf("re-attempting to download file %s", filePath)
 			} else {
 				break
 			}
@@ -218,7 +218,7 @@ func (d *Downloader) DownloadGenesis(recent bool, filePath, aType string) (err e
 		d.ByronGenesis = filePath
 	}
 	if aType == AlonzoGenesis {
-		// d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
+		// TODO: d.node.NetworkMagic = uint64(jq.From("networkMagic").Get().(float64))
 		d.AlonzoGenesis = filePath
 	}
 

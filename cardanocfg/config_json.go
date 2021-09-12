@@ -31,6 +31,9 @@ var cardanoBlocks = []string{
 }
 
 func mapBackEndSet(key string, enableRTView bool, mapBackEnd map[string]interface{}, secondTracer string) {
+	if secondTracer == "disabled" {
+		fmt.Println("second tracer disabled")
+	}
 	if enableRTView {
 		mapBackEnd[key] = []string{"TraceForwarderBK", "EKGViewBK"}
 	} else {
@@ -52,9 +55,9 @@ func (d *Downloader) ConfigureBlocks(jsonB []byte) ([]byte, error) {
 			mapBackEndSet(key, d.enableRtView, mapBackEnd, "KatipBK")
 		// FIXME:
 		// case "cardano.node.Handshake":
-		// mapBackEnd[key] = []string{"TraceForwarderBK"}
+		// --> mapBackEnd[key] = []string{"TraceForwarderBK"}
 		default:
-			// FIXME: mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
+			// --> TODO: mapBackEnd[key] = []string{"TraceForwarderBK", "KatipBK"}
 			d.log.Warn("no default trace for: ", key)
 		}
 	}

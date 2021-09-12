@@ -1,16 +1,11 @@
 package cardanocfg_test
 
 import (
-	"fmt"
-	"log"
-	"net"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/adakailabs/gocnode/nettest/fastping"
-
-	"github.com/adakailabs/go-traceroute/traceroute"
 
 	"github.com/k0kubun/pp"
 
@@ -143,8 +138,6 @@ func TestConfigDownloadAndSetTopology(t *testing.T) {
 func TestConfigMainnetTopology(t *testing.T) {
 	defer os.RemoveAll("/tmp/logs")
 	a := assert.New(t)
-	//const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
-
 	c, err := config.New(cfgFile, true, "Debug")
 	a.Nil(err)
 
@@ -155,27 +148,4 @@ func TestConfigMainnetTopology(t *testing.T) {
 	a.Nil(err3)
 
 	pp.Print(relays)
-}
-
-func TestTraceRouteGoogle(t *testing.T) {
-	defer os.RemoveAll("/tmp/logs")
-	// a := assert.New(tr)
-	//hosts, _ := net.LookupIP("roci-master00.adakailabs.com")
-	//hosts, _ := net.LookupIP("92.249.148.171")
-	// hosts, _ := net.LookupIP("34.127.91.195")
-	hosts, _ := net.LookupIP("195.154.69.26")
-	ip := hosts[0]
-	hops, err := traceroute.Trace(ip)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, h := range hops {
-		for _, n := range h.Nodes {
-			log.Printf("%d. %v %v", h.Distance, n.IP, n.RTT)
-		}
-	}
-
-	list := hops[len(hops)-1].Nodes[len(hops[len(hops)-1].Nodes)-1]
-
-	fmt.Println(list)
 }

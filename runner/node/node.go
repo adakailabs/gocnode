@@ -170,7 +170,7 @@ func (r *R) setCMD0Args() {
 		//tells the RTS to dispatch the
 		// programs threads on 2 cpus
 		// (using -N without a number will make it use all the CPUs available)
-		"-N2",
+		"-N4",
 
 		// tells the RTS to use a different and less optimized way
 		// to release memory so that GNU/Linux performance tools such
