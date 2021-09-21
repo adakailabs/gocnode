@@ -25,6 +25,12 @@ import (
 
 var conf *config.C
 var cfgFile string
+var peers int
+var pool string
+var id int
+var isProducer bool
+var passive bool
+var logMinSeverity string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

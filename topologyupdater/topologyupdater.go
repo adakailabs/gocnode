@@ -50,26 +50,6 @@ func New(c *config.C, nodeID int) (tu *TU, err error) {
 	return tu, err
 }
 
-func (t *TU) GetTopology() (UpdaterGetNodes, error) {
-	url := fmt.Sprintf("%s/fetch/?max=%d&magic=%d&ipv=%d",
-		APIURL,
-		t.node.Peers,
-		t.node.NetworkMagic,
-		4)
-
-	resp, err := t.client.R().
-		EnableTrace().
-		Get(url)
-	if err != nil {
-		return UpdaterGetNodes{}, err
-	}
-
-	toReturn := UpdaterGetNodes{}
-
-	err = json.Unmarshal(resp.Body(), &toReturn)
-	return toReturn, err
-}
-
 func (t *TU) GetCardanoBlock() (string, error) {
 	prometheusHost := "http://prometheus:9090"
 	if t.testMode {

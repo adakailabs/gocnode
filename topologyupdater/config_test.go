@@ -8,8 +8,6 @@ import (
 
 	"github.com/adakailabs/gocnode/topologyupdater"
 
-	"github.com/k0kubun/pp"
-
 	"github.com/stretchr/testify/assert"
 
 	"github.com/adakailabs/gocnode/config"
@@ -18,24 +16,6 @@ import (
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 	os.Exit(m.Run())
-}
-
-func TestConfig(t *testing.T) {
-	defer os.RemoveAll("/tmp/logs")
-	a := assert.New(t)
-	const cfgFile = "/home/galuisal/Documents/cardano/adakailabs/gocnode/gocnode.yaml"
-
-	c, err := config.New(cfgFile, true, "debug")
-	a.Nil(err)
-
-	tu, err := topologyupdater.New(c, 2)
-	a.Nil(err)
-
-	top, err := tu.GetTopology()
-	a.Nil(err)
-
-	a.Nil(err)
-	pp.Println(top)
 }
 
 func TestPing(t *testing.T) {

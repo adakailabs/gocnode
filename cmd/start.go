@@ -21,7 +21,9 @@ import (
 	"github.com/adakailabs/gocnode/runner/prometheuscfg"
 	"github.com/adakailabs/gocnode/runner/rtview"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
 
 var id int
 var isProducer bool
@@ -103,11 +105,16 @@ func init() {
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
+
 	startOptimizer.PersistentFlags().BoolVarP(&isTestNet, "is-testnet", "t", false, "optimizer loads testnet relays")
+	startNodeCmd.PersistentFlags().IntVarP(&peers, "peers", "p", 0, "number of relay peers to connect to")
+
 	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
 	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
 	startNodeCmd.PersistentFlags().StringVarP(&logMinSeverity, "log-min-severity", "s", "", "sets the logging min severity")
 	startNodeCmd.PersistentFlags().BoolVarP(&passive, "passive", "a", false, "starts this producer in passive mode (as a relay")
+
+	viper.BindPFlag("peers", startNodeCmd.Flags().Lookup("peers"))
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
