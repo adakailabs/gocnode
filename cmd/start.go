@@ -21,15 +21,7 @@ import (
 	"github.com/adakailabs/gocnode/runner/prometheuscfg"
 	"github.com/adakailabs/gocnode/runner/rtview"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
-
-
-var id int
-var isProducer bool
-var passive bool
-var logMinSeverity string
-var isTestNet bool
 
 // startNodeCmd represents the start command
 var startNodeCmd = &cobra.Command{
@@ -40,6 +32,16 @@ var startNodeCmd = &cobra.Command{
 
 		if logMinSeverity != "" {
 			conf.SetLogMinSeverity(logMinSeverity, id, isProducer)
+		}
+
+		if peers != 0 {
+			if isProducer {
+				conf.Producers[id].Peers = peers
+				conf.Log.Infof("producer with ID: %d has %d peers configured", id, peers)
+			} else {
+				conf.Relays[id].Peers = peers
+				conf.Log.Infof("relay with ID: %d has %d peers configured", id, peers)
+			}
 		}
 
 		r, err := node.NewCardanoNodeRunner(conf, id, isProducer, passive)
@@ -107,14 +109,14 @@ func init() {
 	// and all subcommands, e.g.:
 
 	startOptimizer.PersistentFlags().BoolVarP(&isTestNet, "is-testnet", "t", false, "optimizer loads testnet relays")
-	startNodeCmd.PersistentFlags().IntVarP(&peers, "peers", "p", 0, "number of relay peers to connect to")
+	startNodeCmd.PersistentFlags().UintVarP(&peers, "peers", "e", 0, "number of relay peers to connect to")
 
 	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
 	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
 	startNodeCmd.PersistentFlags().StringVarP(&logMinSeverity, "log-min-severity", "s", "", "sets the logging min severity")
 	startNodeCmd.PersistentFlags().BoolVarP(&passive, "passive", "a", false, "starts this producer in passive mode (as a relay")
 
-	viper.BindPFlag("peers", startNodeCmd.Flags().Lookup("peers"))
+	//viper.BindPFlag("peers", startNodeCmd.Flags().Lookup("peers"))
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

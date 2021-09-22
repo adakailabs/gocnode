@@ -74,25 +74,25 @@ type C struct {
 	Mapped
 	TestMode   bool
 	logLevel   string
-	log        *zap.SugaredLogger
+	Log        *zap.SugaredLogger
 	latencyMap map[string]Node
 }
 
 func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 	c = &C{}
 	c.TestMode = testmode
-	if c.log, err = l.NewLogConfig(c, "config"); err != nil {
+	if c.Log, err = l.NewLogConfig(c, "config"); err != nil {
 		return c, err
 	}
 
-	c.log.Info("starting config")
+	c.Log.Info("starting config")
 
 	if err = c.configViper(configFile); err != nil {
 		err = errors.Annotate(err, "configuring viper")
 		return nil, err
 	}
 
-	c.log.Info("config file: ", configFile)
+	c.Log.Info("config file: ", configFile)
 
 	m := Mapped{}
 	err = viper.Unmarshal(&m)
@@ -124,7 +124,7 @@ func New(configFile string, testmode bool, logLevel string) (c *C, err error) {
 
 	c.configNodes()
 
-	_ = c.log.Sync()
+	_ = c.Log.Sync()
 
 	c.latencyMap = make(map[string]Node)
 
@@ -167,7 +167,7 @@ func (c *C) configViper(configFile string) error {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		c.log.Info("Using config file:", viper.ConfigFileUsed())
+		c.Log.Info("Using config file:", viper.ConfigFileUsed())
 	} else {
 		err = errors.Annotate(err, "could not read in viper config")
 		return err
@@ -201,17 +201,17 @@ func (c *C) configNodes() {
 
 		if c.Mapped.Producers[i].Port == 0 {
 			c.Mapped.Producers[i].Port = portBase + uint(i)
-			c.log.Warnf("for node %s setting node port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].Port)
+			c.Log.Warnf("for node %s setting node port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].Port)
 		}
 
 		if c.Mapped.Producers[i].RtViewPort == 0 {
 			c.Mapped.Producers[i].RtViewPort = rtPortBase + uint(i)
-			c.log.Warnf("for node %d setting node rtview port to: %d", i, c.Mapped.Producers[i].RtViewPort)
+			c.Log.Warnf("for node %d setting node rtview port to: %d", i, c.Mapped.Producers[i].RtViewPort)
 		}
 
 		if c.Mapped.Producers[i].PromeNExpPort == 0 {
 			c.Mapped.Producers[i].PromeNExpPort = uint(9100)
-			c.log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].PromeNExpPort)
+			c.Log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Producers[i].Name, c.Mapped.Producers[i].PromeNExpPort)
 		}
 
 		pool, ok := ProducerHostsList[c.Mapped.Producers[i].Pool]
@@ -238,16 +238,16 @@ func (c *C) configNodes() {
 
 		if c.Mapped.Relays[i].Port == 0 {
 			c.Mapped.Relays[i].Port = portBase + uint(i)
-			c.log.Warnf("for node %s setting node port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].Port)
+			c.Log.Warnf("for node %s setting node port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].Port)
 		}
 		if c.Mapped.Relays[i].RtViewPort == 0 {
 			c.Mapped.Relays[i].RtViewPort = rtPortBase + uint(i)
-			c.log.Warnf("for node %s setting node rtview port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].RtViewPort)
+			c.Log.Warnf("for node %s setting node rtview port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].RtViewPort)
 		}
 
 		if c.Mapped.Relays[i].PromeNExpPort == 0 {
 			c.Mapped.Relays[i].PromeNExpPort = uint(9100)
-			c.log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].PromeNExpPort)
+			c.Log.Warnf("for node %s setting prometheus node exporter port to: %d", c.Mapped.Relays[i].Name, c.Mapped.Relays[i].PromeNExpPort)
 		}
 
 		pool, ok := RelaysHostsList[c.Mapped.Relays[i].Pool]
@@ -264,7 +264,7 @@ func (c *C) configNodes() {
 		var ok bool
 		c.Mapped.Producers[i].Relays, ok = RelaysHostsList[c.Mapped.Producers[i].Pool]
 		if !ok {
-			c.log.Warn("producer %s does not have relays associated", c.Mapped.Producers[i].Name)
+			c.Log.Warn("producer %s does not have relays associated", c.Mapped.Producers[i].Name)
 		}
 		c.Mapped.Producers[i].Relays = append(c.Mapped.Producers[i].Relays, c.Mapped.Producers[i].ExtRelays...)
 	}
@@ -273,7 +273,7 @@ func (c *C) configNodes() {
 		var ok bool
 		c.Mapped.Relays[i].Producers, ok = ProducerHostsList[c.Mapped.Relays[i].Pool]
 		if !ok {
-			c.log.Warnf("producer %s does not have producers associated", c.Mapped.Relays[i].Name)
+			c.Log.Warnf("producer %s does not have producers associated", c.Mapped.Relays[i].Name)
 		}
 		c.Mapped.Relays[i].Producers = append(c.Mapped.Relays[i].Producers, c.Mapped.Relays[i].ExtProducer...)
 
@@ -293,7 +293,7 @@ func (c *C) configNodes() {
 				c.Mapped.Producers[i].Network,
 				c.Mapped.Producers[i].Pool,
 				"backup")
-			c.log.Info("backup dir configured to: ", c.Mapped.Producers[i].BackupDir)
+			c.Log.Info("backup dir configured to: ", c.Mapped.Producers[i].BackupDir)
 		}
 		if c.Mapped.Producers[i].TmpDir == "" {
 			c.Mapped.Producers[i].TmpDir = fmt.Sprintf("%s/%s/%s/%s", "/tmp/cardano-node",
@@ -316,7 +316,7 @@ func (c *C) configNodes() {
 				c.Mapped.Relays[i].Network,
 				c.Mapped.Relays[i].Pool,
 				"backup")
-			c.log.Info("backup dir configured to: ", c.Mapped.Relays[i].BackupDir)
+			c.Log.Info("backup dir configured to: ", c.Mapped.Relays[i].BackupDir)
 		}
 		if c.Mapped.Relays[i].TmpDir == "" {
 			c.Mapped.Relays[i].TmpDir = fmt.Sprintf("%s/%s/%s/%s", "/tmp/cardano-node",
@@ -325,5 +325,5 @@ func (c *C) configNodes() {
 				c.Mapped.Relays[i].Name)
 		}
 	}
-	c.log.Debug(pp.Print(c.Mapped.Relays))
+	c.Log.Debug(pp.Print(c.Mapped.Relays))
 }

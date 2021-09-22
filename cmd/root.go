@@ -16,8 +16,7 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
-	"time"
+	"log"
 
 	"github.com/adakailabs/gocnode/config"
 	"github.com/spf13/cobra"
@@ -25,12 +24,13 @@ import (
 
 var conf *config.C
 var cfgFile string
-var peers int
+var peers uint
 var pool string
 var id int
 var isProducer bool
 var passive bool
 var logMinSeverity string
+var isTestNet bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -70,11 +70,8 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	var err error
-	if conf, err = config.New(cfgFile, false, "debug"); err != nil {
-		for {
-			time.Sleep(time.Second * 10)
-			fmt.Println("config not found: ", cfgFile, err.Error())
-		}
-		panic(err.Error())
+	conf, err = config.New(cfgFile, false, "debug")
+	if err != nil {
+		log.Fatal(err.Error())
 	}
 }
