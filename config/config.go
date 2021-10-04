@@ -27,11 +27,11 @@ type NodeShort struct {
 type Node struct {
 	Name          string
 	Host          string      `mapstructure:"host"`
-	LHost         string      `mapstructure:"host"`
-	IP            string      `mapstructure:"ip"`
+	//LHost         string      `mapstructure:"host"`
+	//IP            string      `mapstructure:"ip"`
 	Network       string      `mapstructure:"network"`
 	Port          uint        `mapstructure:"port"`
-	Era           string      `mapstructure:"era"`
+	//Era           string      `mapstructure:"era"`
 	Peers         uint        `mapstructure:"peers"`
 	RtViewPort    uint        `mapstructure:"rtview_port"`
 	PromeNExpPort uint        `mapstructure:"prom_node_port"`
