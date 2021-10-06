@@ -25,10 +25,12 @@ type NodeShort struct {
 }
 
 type Node struct {
+
 	Name          string
 	Host          string      `mapstructure:"host"`
 	//LHost         string      `mapstructure:"host"`
 	//IP            string      `mapstructure:"ip"`
+
 	Network       string      `mapstructure:"network"`
 	Port          uint        `mapstructure:"port"`
 	//Era           string      `mapstructure:"era"`
@@ -41,6 +43,7 @@ type Node struct {
 	IsProducer    bool        `mapstructure:"is_producer"`
 	RootDir       string      `mapstructure:"root_dir"`
 	BackupDir     string      `mapstructure:"backup_dir"`
+	InternalPort  uint        `mapstructure:"internal_port"`
 
 	ExtRelays   []NodeShort `mapstructure:"ext_relays"`
 	ExtProducer []NodeShort `mapstructure:"ext_producer"`

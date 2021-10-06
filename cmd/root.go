@@ -26,6 +26,8 @@ var conf *config.C
 var cfgFile string
 var peers uint
 var pool string
+var host string
+var port uint
 var id int
 var isProducer bool
 var passive bool

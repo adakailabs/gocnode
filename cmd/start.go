@@ -56,6 +56,24 @@ var startNodeCmd = &cobra.Command{
 		}
 
 
+		if host != "" {
+			if isProducer {
+				conf.Producers[id].Host = host
+				conf.Log.Infof("producer with ID: %d has %d peers configured", id, peers)
+			} else {
+				conf.Relays[id].Peers = peers
+				conf.Log.Infof("relay with ID: %d has %d peers configured", id, peers)
+			}
+		}
+
+		if isProducer {
+			conf.Producers[id].InternalPort = port
+			conf.Log.Infof("producer with ID: %d has internal port %d ", id, port)
+		} else {
+			conf.Relays[id].InternalPort = port
+			conf.Log.Infof("relay with ID: %d has internal port %d", id, port)
+		}
+
 		r, err := node.NewCardanoNodeRunner(conf, id, isProducer, passive)
 		if err != nil {
 			return err
@@ -127,6 +145,8 @@ func init() {
 	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
 	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
 	startNodeCmd.PersistentFlags().StringVarP(&logMinSeverity, "log-min-severity", "s", "", "sets the logging min severity")
+	startNodeCmd.PersistentFlags().StringVarP(&host, "host", "h", "", "sets the node host name or IP")
+	startNodeCmd.PersistentFlags().UintVarP(&port, "port", "t", 3001, "sets the port that the node will listen to")
 	startNodeCmd.PersistentFlags().BoolVarP(&passive, "passive", "a", false, "starts this producer in passive mode (as a relay")
 
 	//viper.BindPFlag("peers", startNodeCmd.Flags().Lookup("peers"))
