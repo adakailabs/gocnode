@@ -313,10 +313,11 @@ func (r *R) CheckRedisRelays(relays topologyfile.NodeList) (err error) {
 			continue
 		}
 
-		if _, ok := relaysKeys[key]; !ok {
-			_ = r.Rdc.Del(r.Ctx, key)
-			r.Log.Warn("deleting missing key: ", key)
-		}
+		// Fixme:
+		//if _, ok := relaysKeys[key]; !ok {
+		//	_ = r.Rdc.Del(r.Ctx, key)
+		//	r.Log.Warn("deleting missing key: ", key)
+		//}
 	}
 
 	return err

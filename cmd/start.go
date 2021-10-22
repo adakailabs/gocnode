@@ -47,10 +47,10 @@ var startNodeCmd = &cobra.Command{
 		if pool != "" {
 			if isProducer {
 				conf.Producers[id].Pool = pool
-				conf.Log.Infof("producer with ID %d has name %d configured", id, pool)
+				conf.Log.Infof("producer with ID %d has name %s configured", id, pool)
 			} else {
 				conf.Relays[id].Pool = pool
-				conf.Log.Infof("relay with ID %d has name %d configured", id, pool)
+				conf.Log.Infof("relay with ID %d has name %s configured", id, pool)
 
 			}
 		}
@@ -59,10 +59,10 @@ var startNodeCmd = &cobra.Command{
 		if host != "" {
 			if isProducer {
 				conf.Producers[id].Host = host
-				conf.Log.Infof("producer with ID: %d has %d peers configured", id, peers)
+				conf.Log.Infof("producer with ID: %d has host %s configured", id, host)
 			} else {
 				conf.Relays[id].Peers = peers
-				conf.Log.Infof("relay with ID: %d has %d peers configured", id, peers)
+				conf.Log.Infof("relay with ID: %d has host %s configured", id, host)
 			}
 		}
 
@@ -142,10 +142,10 @@ func init() {
 	startNodeCmd.PersistentFlags().UintVarP(&peers, "peers", "e", 0, "number of relay peers to connect to")
 	startNodeCmd.PersistentFlags().StringVarP(&pool, "pool", "p", "", "pool name")
 
-	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "i", 0, "relay id")
-	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "p", false, "starts this node as a producer")
+	startNodeCmd.PersistentFlags().IntVarP(&id, "id", "d", 0, "relay id")
+	startNodeCmd.PersistentFlags().BoolVarP(&isProducer, "is-producer", "i", false, "starts this node as a producer")
 	startNodeCmd.PersistentFlags().StringVarP(&logMinSeverity, "log-min-severity", "s", "", "sets the logging min severity")
-	startNodeCmd.PersistentFlags().StringVarP(&host, "host", "h", "", "sets the node host name or IP")
+	startNodeCmd.PersistentFlags().StringVarP(&host, "host", "", "", "sets the node host name or IP")
 	startNodeCmd.PersistentFlags().UintVarP(&port, "port", "t", 3001, "sets the port that the node will listen to")
 	startNodeCmd.PersistentFlags().BoolVarP(&passive, "passive", "a", false, "starts this producer in passive mode (as a relay")
 

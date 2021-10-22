@@ -91,7 +91,7 @@ func (r *R) newArgs() (cnodeArgs, error) {
 	r.cnargs.KesKeyS = "--shelley-kes-key"
 	r.cnargs.VrfKeyS = "--shelley-vrf-key"
 	r.cnargs.OpCertS = "--shelley-operational-certificate"
-	r.cnargs.NodePort = fmt.Sprintf("%d", r.NodeC.Port)
+	r.cnargs.NodePort = fmt.Sprintf("%d", r.NodeC.InternalPort)
 	r.cnargs.HostAddress = "0.0.0.0"
 
 	r.cnargs.KesKey = fmt.Sprintf("%s/node_kes.key", r.C.SecretsPath)
@@ -207,7 +207,7 @@ func (r *R) setCMD0Args() {
 		r.cnargs.SocketPathS,
 		r.cnargs.SocketPath,
 		r.cnargs.NodePortS,
-		"3001",
+		r.cnargs.NodePort,
 		r.cnargs.HostAddressS,
 		r.cnargs.HostAddress,
 		r.cnargs.NodeTopologyS,

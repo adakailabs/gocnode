@@ -162,6 +162,8 @@ func (c *C) configViper(configFile string) error {
 		viper.AddConfigPath(home)
 		viper.AddConfigPath("./")
 		viper.AddConfigPath("../")
+		viper.AddConfigPath("/home/lovelace/cardano-node/")
+		viper.AddConfigPath("/mnt/cardano_shares/testnet/cardano_node")
 		viper.AddConfigPath("/run/secrets")
 		viper.SetConfigName("gocnode")
 	}
