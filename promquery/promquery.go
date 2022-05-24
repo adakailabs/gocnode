@@ -58,6 +58,10 @@ func New(c *config.C, nodeID int) (tu *TU, err error) {
 
 func (t *TU) GetCardanoBlock() (string, error) {
 	prometheusHost := "http://prometheus:9090"
+	if t.node.Network == "testnet" {
+		prometheusHost = "http://testnet_prometheus:9090"
+	}
+
 	if t.testMode {
 		prometheusHost = "http://192.168.100.46:9090"
 	}
@@ -92,6 +96,10 @@ func (t *TU) GetCardanoBlock() (string, error) {
 
 func (t *TU) GetCardanoConnectedPeers() (string, error) {
 	prometheusHost := "http://prometheus:9090"
+	if t.node.Network == "testnet" {
+		prometheusHost = "http://testnet_prometheus:9090"
+	}
+
 	if t.testMode {
 		prometheusHost = "http://192.168.100.46:9090"
 	}
